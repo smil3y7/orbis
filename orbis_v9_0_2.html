@@ -538,8 +538,8 @@
 
             <!-- Pripni sanje -->
             <div style="padding:6px 18px 10px; border-top:1px solid #111; flex-shrink:0;">
-                <div id="mv-pin-toggle" onclick="togglePinSearch()" style="font-size:0.7em; color:var(--muted); cursor:pointer; padding:4px 0; user-select:none;">
-                    <!--i18n:mv.pin.toggle_closed-->📌 Pripni sanje ▼
+                <div id="mv-pin-toggle" data-i18n="mv.pin.toggle_closed" onclick="togglePinSearch()" style="font-size:0.7em; color:var(--muted); cursor:pointer; padding:4px 0; user-select:none;">
+                    📌 Pripni sanje ▼
                 </div>
                 <div id="mv-pin-search" style="display:none; margin-top:6px;">
                     <div class="search-wrap" style="margin-bottom:4px;">
@@ -854,6 +854,10 @@ function t(key, ...args) {
         'warp.toggle_oneway':   currentLang === 'en' ? 'Toggle direction'      : 'Preklopi smer',
         'warp.flip':            currentLang === 'en' ? 'Flip direction'        : 'Obrni smer',
         'warp.delete':          currentLang === 'en' ? 'Delete warp'           : 'Izbriši warp',
+
+        // BUGFIX: nova sporočila za validacijo pri ustvarjanju warpov (glej uiCreateWarp)
+        'warp.error_no_selection':   currentLang === 'en' ? 'Please select both a source and a target location.' : 'Prosim, izberi izvorno IN ciljno lokacijo.',
+        'warp.error_too_few_nodes':  currentLang === 'en' ? 'You need at least two locations to create a warp.'   : 'Za warp potrebuješ vsaj dve lokaciji.',
     };
     let str = dict?.[key] || LANGUAGES['sl']?.[key] || FALLBACK[key] || key;
     args.forEach(arg => { str = str.replace('%s', arg); });
@@ -1238,6 +1242,7 @@ function refreshData() {
     rebuildGroupBoundsCache();
     // SKLOP 2: obnovi frekvenčno mapo
     buildFreqMap();
+    rebuildNodeFreqCache(); // OPT — glej definicijo funkcije nižje; nadomesti izračun frekvence/barve v render loopu
     if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
 }
 
@@ -1263,6 +1268,54 @@ function buildFreqMap() {
         });
         freqMax = Math.max(1, ...freqMap.values());
     } catch(e) {} // Location tabela morda ne obstaja (prazna baza)
+}
+
+// ─────────────────────────────────────────────
+//  FREKVENCA / BARVA — CACHE (OPT)
+//  BUGFIX/PERF: getNodeFreq() in freqColor() sta se prej preračunala VSAK FRAME za
+//  vsak node in vsak warp (linearno iskanje po celotnem freqMap). Pri večjih bazah
+//  je to opazno upočasnilo izris (tudi warpov). Zdaj se izračuna enkrat ob
+//  refreshData()/buildFreqMap() in shrani v nodeFreqCache.
+// ─────────────────────────────────────────────
+let nodeFreqCache = new Map(); // nodeId -> { cnt, color: {r,g,b,t,cnt} | null }
+
+function computeNodeFreqRaw(node) {
+    const name = node.name.toLowerCase();
+    const stem = (name.length > 3 && 'aeiou'.includes(name.slice(-1)))
+        ? name.slice(0, -1) : name;
+    let best = 0;
+    freqMap.forEach((cnt, key) => {
+        if (key.startsWith(stem) || stem.startsWith(key.slice(0, Math.max(3, key.length - 1)))) {
+            if (cnt > best) best = cnt;
+        }
+    });
+    return best;
+}
+
+function computeFreqColorRaw(cnt) {
+    if (!cnt) return null;
+    const tt = Math.pow(cnt / freqMax, 0.5); // sqrt za boljšo distribucijo
+    // Interpolacija: cyan (hladno, redko) → rumena → oranžna (vroče, pogosto)
+    const r = Math.round(102 + (255 - 102) * tt);
+    const g = Math.round(252 - (252 - 165) * tt);
+    const b = Math.round(241 * (1 - tt));
+    return { r, g, b, t: tt, cnt };
+}
+
+function rebuildNodeFreqCache() {
+    nodeFreqCache = new Map();
+    nodes.forEach(n => {
+        const cnt = computeNodeFreqRaw(n);
+        nodeFreqCache.set(n.id, { cnt, color: computeFreqColorRaw(cnt) });
+    });
+}
+
+function getNodeFreq(node) {
+    return nodeFreqCache.get(node.id)?.cnt || 0;
+}
+
+function freqColor(node) {
+    return nodeFreqCache.get(node.id)?.color || null;
 }
 
 // ─────────────────────────────────────────────
@@ -1515,32 +1568,6 @@ function flashAndOpen(nodeId) {
     openMasterView(n);
 }
 
-function getNodeFreq(node) {
-    // Stem logika enaka kot v openMasterView
-    const name = node.name.toLowerCase();
-    const stem = (name.length > 3 && 'aeiou'.includes(name.slice(-1)))
-        ? name.slice(0, -1) : name;
-    // Poišči najboljše ujemanje v freqMap
-    let best = 0;
-    freqMap.forEach((cnt, key) => {
-        if (key.startsWith(stem) || stem.startsWith(key.slice(0, Math.max(3, key.length - 1)))) {
-            if (cnt > best) best = cnt;
-        }
-    });
-    return best;
-}
-
-function freqColor(node) {
-    const cnt = getNodeFreq(node);
-    if (!cnt) return null;
-    const t = Math.pow(cnt / freqMax, 0.5); // sqrt za boljšo distribucijo
-    // Interpolacija: cyan (hladno, redko) → rumena → oranžna (vroče, pogosto)
-    const r = Math.round(102 + (255 - 102) * t);
-    const g = Math.round(252 - (252 - 165) * t);
-    const b = Math.round(241 * (1 - t));
-    return { r, g, b, t, cnt };
-}
-
 // ─────────────────────────────────────────────
 //  HELPERS — parent/child
 // ─────────────────────────────────────────────
@@ -1586,7 +1613,16 @@ function populateWarpSelect(selectId, filter = '') {
     const filtered = q ? nodes.filter(n => n.name.toLowerCase().includes(q)) : nodes;
     const prev = sel.value;
     sel.innerHTML = filtered.map(n => `<option value="${n.id}">${escHtml(n.name)}</option>`).join('');
-    if (filtered.find(n => String(n.id) === prev)) sel.value = prev;
+    // BUGFIX: prej se je ob izgubljeni izbiri (npr. med tipkanjem v iskalno polje)
+    // privzeto in NEOPAZNO izbral prvi node v novem filtriranem seznamu. To je
+    // povzročilo, da so warpi nastali med napačnima lokacijama. Zdaj select ob
+    // izgubljeni izbiri ostane prazen (selectedIndex = -1) — uporabnik mora
+    // lokacijo izbrati ponovno, uiCreateWarp() pa to primerno preveri.
+    if (filtered.find(n => String(n.id) === prev)) {
+        sel.value = prev;
+    } else {
+        sel.selectedIndex = -1;
+    }
 }
 function filterWarpSelect(id, q) { populateWarpSelect(id, q); }
 
@@ -1595,8 +1631,17 @@ function filterWarpSelect(id, q) { populateWarpSelect(id, q); }
 // ─────────────────────────────────────────────
 function resizeCanvas() {
     const vp = document.getElementById('viewport');
-    canvas.width = vp.clientWidth;
-    canvas.height = vp.clientHeight;
+    const newW = vp.clientWidth, newH = vp.clientHeight;
+    // BUGFIX: prej se je ob spremembi velikosti okna/sidebar-ja pogled vidno
+    // "skočil" vstran, ker centerHomeNode() DOM node vedno prestavi na novo
+    // središče canvasa, camX/camY pa se nista ustrezno prilagodila. Zdaj
+    // kompenziramo ta premik, da kamera ostane vizualno stabilna.
+    if (canvas.width && canvas.height) {
+        camX += camScale * (canvas.width - newW) / 2;
+        camY += camScale * (canvas.height - newH) / 2;
+    }
+    canvas.width = newW;
+    canvas.height = newH;
     centerHomeNode();
 }
 resizeCanvas();
@@ -2530,8 +2575,11 @@ function hitTest(mx, my) {
     const r = 20 / camScale;
     for (let i = nodes.length - 1; i >= 0; i--) {
         const n = nodes[i];
-        // Pri oddaljenem pogledu child-i niso vidni — ne reagirajo na klik
-        if (n.parentId && camScale < LOD_DETAIL) continue;
+        // BUGFIX: prej je bil prag za klik enak LOD_DETAIL (0.55), medtem ko vizualna
+        // alpha otroških nodov v drawNode() postopno naraste šele do LOD_DETAIL+0.15
+        // (0.70). V tem vmesnem pasu so bili otroci klikljivi, čeprav praktično
+        // nevidni. Zdaj se prag za klik ujema s pragom polne vidnosti.
+        if (n.parentId && camScale < LOD_DETAIL + 0.15) continue;
         if (Math.hypot(n.x - mx, n.y - my) < r) return n;
     }
     return null;
@@ -2571,7 +2619,9 @@ document.addEventListener('keydown', e => {
         if (e.key === '0') { e.preventDefault(); resetCamera(); }
         if (e.key === 't' || e.key === 'T') { e.preventDefault(); switchMode(viewMode==='map'?'timeline':'map'); }
         if (e.key === 'i' || e.key === 'I') { e.preventDefault(); toggleInsights(); }
-        if (e.key === 'd' || e.key === 'D') { e.preventDefault(); document.getElementById('discovery-search')?.focus(); }
+        // BUGFIX: bližnjica je iskala element z ID-jem 'discovery-search', ki ne
+        // obstaja (pravi ID inputa je 'global-search') — bližnjica ni delala nič.
+        if (e.key === 'd' || e.key === 'D') { e.preventDefault(); document.getElementById('global-search')?.focus(); }
         if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.2); }
         if (e.key === '-') { e.preventDefault(); zoomBy(0.83); }
         if (e.key === 'Escape') {
@@ -2796,7 +2846,10 @@ function populateEditMode(node) {
 function populateParentSelect(node) {
     const sel = document.getElementById('mv-parent-select');
     const prev = node.parentId || '';
-    sel.innerHTML = `<option value="">— brez skupne —</option>` +
+    // BUGFIX: prej trdo kodirano v slovenščini ("— brez skupne —"), zato se ni
+    // prevedlo pri preklopu na angleščino. Zdaj uporabi obstoječi i18n ključ
+    // mv.parent.none (enak kot v statičnem HTML-ju).
+    sel.innerHTML = `<option value="">${t('mv.parent.none')}</option>` +
         nodes.filter(n => n.id !== node.id && !n.parentId && !n.isHome)
              .map(n => `<option value="${n.id}" ${n.id == prev ? 'selected' : ''}>${escHtml(n.name)}</option>`)
              .join('');
@@ -2933,6 +2986,31 @@ function searchDreamsToPin(q) {
     }, 300);
 }
 
+// BUGFIX: prej je unpinDream() klical pinDream(-1) zgolj zato, da bi sprožil
+// osvežitev seznama sanj. To je v bazo dejansko vstavilo neveljaven zapis
+// (SleepCycleId = -1) v Atlas_NodeDreams vsakič, ko je uporabnik nekaj odpel.
+// Osveževanje je zdaj v svoji funkciji, ki je ne vstavlja ničesar v bazo.
+function refreshActiveNodeDreamList() {
+    if (!db || !activeNode) return;
+    const capturedNode = activeNode;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (activeNode?.id !== capturedNode.id) return;
+        try {
+            const { whereClause, params } = buildDreamSearchSQL(capturedNode);
+            const q = db.exec(
+                `SELECT DISTINCT sc.Contents, d.Date_, sc.SleepCycleID,
+                    CASE WHEN nd.SleepCycleId IS NOT NULL THEN 1 ELSE 0 END as isPinned
+                 FROM SleepCycle sc JOIN Dreams d ON sc.DreamID = d.DreamID
+                 LEFT JOIN Atlas_NodeDreams nd ON nd.SleepCycleId = sc.SleepCycleID AND nd.NodeId = ?
+                 WHERE ${whereClause} ORDER BY isPinned DESC, d.Date_ DESC`,
+                [capturedNode.id, ...params]
+            );
+            currentDreams = q.length ? q[0].values : [];
+        } catch(e) { currentDreams = []; }
+        renderDreamList(currentDreams, document.getElementById('mv-dream-search').value);
+    }));
+}
+
 function pinDream(sleepCycleId) {
     if (!db || !activeNode) return;
     try {
@@ -2944,21 +3022,7 @@ function pinDream(sleepCycleId) {
         // Osveži prikaz
         searchDreamsToPin(document.getElementById('mv-pin-input').value);
         // Osveži seznam sanj
-        const capturedNode = activeNode;
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (activeNode?.id !== capturedNode.id) return;
-            const { whereClause, params } = buildDreamSearchSQL(capturedNode);
-            const q = db.exec(
-                `SELECT DISTINCT sc.Contents, d.Date_, sc.SleepCycleID,
-                    CASE WHEN nd.SleepCycleId IS NOT NULL THEN 1 ELSE 0 END as isPinned
-                 FROM SleepCycle sc JOIN Dreams d ON sc.DreamID = d.DreamID
-                 LEFT JOIN Atlas_NodeDreams nd ON nd.SleepCycleId = sc.SleepCycleID AND nd.NodeId = ?
-                 WHERE ${whereClause} ORDER BY isPinned DESC, d.Date_ DESC`,
-                [capturedNode.id, ...params]
-            );
-            currentDreams = q.length ? q[0].values : [];
-            renderDreamList(currentDreams, document.getElementById('mv-dream-search').value);
-        }));
+        refreshActiveNodeDreamList();
     } catch(e) { console.warn('pinDream:', e); }
 }
 
@@ -2969,7 +3033,7 @@ function unpinDream(sleepCycleId) {
                [activeNode.id, sleepCycleId]);
         markUnsaved();
         searchDreamsToPin(document.getElementById('mv-pin-input').value);
-        pinDream(-1); // sproži refresh seznama (z invalid ID)
+        refreshActiveNodeDreamList();
     } catch(e) {}
 }
 
@@ -3298,9 +3362,24 @@ function deleteCurrentNode() {
 }
 
 function uiCreateWarp() {
-    if (!db || nodes.length < 2) return;
-    const fromId = parseInt(document.getElementById('warp-from').value);
-    const toId = parseInt(document.getElementById('warp-to').value);
+    if (!db) return;
+    // BUGFIX: prej se je preverjalo samo "nodes.length < 2" in preprosto tiho
+    // vrnilo — brez sporočila uporabniku, videti je bilo kot da gumb ne dela.
+    if (nodes.length < 2) { alert(t('warp.error_too_few_nodes')); return; }
+
+    const fromSel = document.getElementById('warp-from');
+    const toSel = document.getElementById('warp-to');
+    const fromId = parseInt(fromSel.value);
+    const toId = parseInt(toSel.value);
+
+    // BUGFIX: prazna/izgubljena izbira (npr. po iskanju v poljih za filtriranje)
+    // je prej vodila v parseInt(NaN), kar je tiho ustvarilo POKVARJEN warp, ki se
+    // nikoli ni izrisal (drawWarps ga je preskočil, ker nodeMap.get(NaN) vrne
+    // undefined) — to je bil glavni vzrok, da warpi "niso delovali".
+    if (!fromSel.value || !toSel.value || isNaN(fromId) || isNaN(toId) || !nodeMap.has(fromId) || !nodeMap.has(toId)) {
+        alert(t('warp.error_no_selection'));
+        return;
+    }
     if (fromId === toId) { alert(t('warp.error_same')); return; }
     // Prepreči duplikat samo če gre za točno enako smer (enosmerni) ali katerokoli smer (dvosmerni)
     const oneWay = document.getElementById('warp-oneway').checked ? 1 : 0;

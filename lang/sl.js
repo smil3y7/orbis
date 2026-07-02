@@ -64,7 +64,7 @@ window.LANG_SL = {
     'status.nodes': 'Nodi',
     'status.warps': 'Warpi',
     'status.dreams': 'Sanje',
-    'help.title': 'NAVODILA — v7.2',
+    'help.title': 'ORBIS v9 — Navodila',
     'help.db.label': 'Naloži bazo:',
     'help.db.text': 'Sprejme .sqlite datoteko z Atlas_Nodes, Atlas_Warps in SleepCycle strukturo.',
     'help.discovery.label': 'Discovery:',
@@ -80,6 +80,10 @@ window.LANG_SL = {
     'help.tables.title': 'ZAHTEVANE TABELE:',
     'help.shortcuts': 'Tipka <b>H</b> = ta meni &nbsp;|&nbsp; <b>Drag</b> = premik noda &nbsp;|&nbsp; <b>Esc</b> = zapri',
     'help.close': 'Zapri',
+	
+	'warp.error_no_selection':  'Prosim, izberi izvorno IN ciljno lokacijo.',
+	'warp.error_too_few_nodes': 'Za warp potrebuješ vsaj dve lokaciji.',
+	
 };
 
 // Dodatki v7.4 — skupiniranje
@@ -92,6 +96,6 @@ window.LANG_SL['node.error_deep_hierarchy'] = 'Podlokacija ne more biti starš d
 window.LANG_SL['help.click.text'] = 'V kartici lokacije nastavi skupino (Skupina dropdown). Premik parenta premakne celo skupino.';
 
 // Dodatki v7.4 — krog B
-window.LANG_SL['mv.set_home'] = '★ Dom';
+window.LANG_SL['mv.set_home'] = 'Označi kot Dom'; // BUGFIX: koda že doda '⌂ ' spredaj, zato je '★ Dom' ustvaril podvojeno ikono ("⌂ ★ Dom")
 window.LANG_SL['node.confirm_set_home'] = 'Nastavi "%s" kot Dom? Prejšnji Dom bo razrešen.';
 window.LANG_SL['help.shortcuts'] = 'Tipka <b>H</b> = meni &nbsp;|&nbsp; <b>0</b> = pojdi na dom &nbsp;|&nbsp; <b>+/-</b> = zoom &nbsp;|&nbsp; <b>↑↓←→</b> = premik &nbsp;|&nbsp; <b>Alt+drag</b> = pan &nbsp;|&nbsp; <b>Kolešček</b> = zoom';

@@ -64,7 +64,7 @@ window.LANG_EN = {
     'status.nodes': 'Nodes',
     'status.warps': 'Warps',
     'status.dreams': 'Dreams',
-    'help.title': 'HOW TO USE — v7.2',
+    'help.title': 'ORBIS v9 — Help',
     'help.db.label': 'Load database:',
     'help.db.text': 'Accepts a .sqlite file with Atlas_Nodes, Atlas_Warps and SleepCycle structure.',
     'help.discovery.label': 'Discovery:',
@@ -80,6 +80,10 @@ window.LANG_EN = {
     'help.tables.title': 'REQUIRED TABLES:',
     'help.shortcuts': 'Key <b>H</b> = this menu &nbsp;|&nbsp; <b>Drag</b> = move node &nbsp;|&nbsp; <b>Esc</b> = close',
     'help.close': 'Close',
+	
+	'warp.error_no_selection':  'Please select both a source and a target location.',
+	'warp.error_too_few_nodes': 'You need at least two locations to create a warp.',	
+	
 };
 
 // Additions v7.4 — grouping
@@ -92,6 +96,6 @@ window.LANG_EN['node.error_deep_hierarchy'] = 'A sub-location cannot be a parent
 window.LANG_EN['help.click.text'] = 'Set a group in the location card (Group dropdown). Moving a parent moves the whole group.';
 
 // Additions v7.4 — round B
-window.LANG_EN['mv.set_home'] = '★ Home';
+window.LANG_EN['mv.set_home'] = 'Set as Home'; // BUGFIX: code already prepends '⌂ ', so '★ Home' produced a duplicate icon ("⌂ ★ Home")
 window.LANG_EN['node.confirm_set_home'] = 'Set "%s" as Home? The previous Home will be unset.';
 window.LANG_EN['help.shortcuts'] = 'Key <b>H</b> = menu &nbsp;|&nbsp; <b>0</b> = go home &nbsp;|&nbsp; <b>+/-</b> = zoom &nbsp;|&nbsp; <b>↑↓←→</b> = pan &nbsp;|&nbsp; <b>Alt+drag</b> = pan &nbsp;|&nbsp; <b>Wheel</b> = zoom';
