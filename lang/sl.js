@@ -1,18 +1,27 @@
 window.LANG_SL = {
-    'app.subtitle': 'SINGULARITY v7.2',
+
+    // ── Aplikacija ───────────────────────────────────────
+    'app.subtitle': 'SINGULARITY',
+    'changelog.title': 'Changelog',
+
+    // ── Baza ─────────────────────────────────────────────
     'db.title': 'Naloži Bazo',
+    'db.choose': '📂 Izberi datoteko...',
     'db.loaded': '✓ Baza naložena: ',
     'db.error': '✗ Napaka: ',
-    'db.choose': '📂 Izberi datoteko...',
+    'db.loading': 'Nalagam bazo…',
+
+    // ── Discovery ────────────────────────────────────────
     'discovery.title': 'Discovery Engine',
     'discovery.placeholder': 'Išči vzorce v sanjah...',
     'discovery.button': 'Rudarjenje',
     'discovery.searching': 'Iščem...',
     'discovery.no_results': 'Ni zadetkov.',
-    'discovery.error': 'Napaka: ',
     'discovery.counter.one': 'san vsebuje',
     'discovery.counter.few': 'sanje vsebujejo',
     'discovery.counter.many': 'sanj vsebuje',
+
+    // ── Lokacije (nodi) ──────────────────────────────────
     'node.title': 'Nova Lokacija',
     'node.placeholder': 'Ime lokacije',
     'node.type.personal': 'Osebna (Krog)',
@@ -22,7 +31,12 @@ window.LANG_SL = {
     'node.default_name': 'Brezimna',
     'node.error_create': 'Napaka pri ustvarjanju noda: ',
     'node.confirm_delete': 'Izbriši lokacijo "%s"?',
+    'node.confirm_delete_parent': 'Izbriši "%s"? Ima %s podlokacij, ki bodo osirotele.',
     'node.error_delete': 'Napaka pri brisanju: ',
+    'node.error_deep_hierarchy': 'Podlokacija ne more biti starš druge lokacije (samo en nivo globine).',
+    'node.confirm_set_home': 'Nastavi "%s" kot novi Dom? Obstoječi Dom bo odstavljen.',
+
+    // ── Warpi ────────────────────────────────────────────
     'warp.title': 'Warp (Anomalija)',
     'warp.search.from': 'Išči izvorno lokacijo…',
     'warp.search.to': 'Išči ciljno lokacijo…',
@@ -31,71 +45,170 @@ window.LANG_SL = {
     'warp.error_same': 'Warp mora biti med dvema različnima lokacijama.',
     'warp.error_exists': 'Warp med tema lokacijama že obstaja.',
     'warp.error_create': 'Napaka pri ustvarjanju warpa: ',
-    'export.button': 'Izvozi .sqlite',
-    'export.no_db': 'Ni baze za izvoz.',
-    'export.unsaved_hint': 'Neshranjene spremembe — klikni za export',
-    'mv.dreams.counter.total': 'sanj',
-    'mv.dreams.counter.filtered': 'zadetkov',
-    'mv.dreams.counter.none': 'Ni zadetkov za',
+    'warp.error_no_selection': 'Prosim, izberi izvorno IN ciljno lokacijo.',
+    'warp.error_too_few_nodes': 'Za warp potrebuješ vsaj dve lokaciji.',
+    'warp.twoway': 'Dvosmerna povezava',
+    'warp.oneway_out': 'Odhodna povezava',
+    'warp.oneway_in': 'Prihodna povezava',
+    'warp.toggle_oneway': 'Preklopi smer',
+    'warp.flip': 'Obrni smer',
+    'warp.delete': 'Izbriši warp',
+    'warp.link_pick_second': 'Warp iz "%s" — zdaj Ctrl+klikni ciljno lokacijo',
+    'warp.link_cancelled': 'Warp povezava preklicana',
+    'warp.link_created': 'Warp ustvarjen: %s → %s',
+
+    // ── Pozabljanje ──────────────────────────────────────
+    'forget.title': 'Pozabljanje',
+    'forget.enable': 'Avtomatično pozabljanje',
+    'forget.rate': 'Stopnja padca',
+    'forget.rate.slow': 'Blago (0.2/mes)',
+    'forget.rate.med': 'Srednje (0.5/mes)',
+    'forget.rate.fast': 'Agresivno (1/mes)',
+    'forget.include_home': 'Vključi DOM node',
+    'forget.apply': 'Posodobi stabilnost',
+    'forget.ref_today': 'Referenca: danes',
+    'forget.ref_last': 'Referenca: zadnji vnos',
+    'forget.updated': 'Posodobljeno',
+    'forget.skipped': 'Preskočeno',
+
+    // ── Sloji karte ──────────────────────────────────────
     'layer.fog': 'Megla',
     'layer.warps': 'Warpi',
     'layer.arch': 'Arhetipi',
     'layer.ds': 'Dream Signs',
+    'layer.groups': 'Skupine',
+
+    // ── Podrobnosti lokacije (Master View) ───────────────
+    'mv.tab.view': '👁 Pregled',
+    'mv.tab.edit': '✏ Uredi',
     'mv.delete': 'Izbriši',
     'mv.stability.label': 'Stabilnost',
     'mv.type.personal': 'Osebna',
     'mv.type.archetype': 'Arhetip',
     'mv.type.dreamsign': 'Dream Sign',
-    'mv.save': '✓',
     'mv.stat.dreams': 'Sanje',
     'mv.stat.stability': 'Stabilnost',
     'mv.stat.warps': 'Warpi',
     'mv.connections.title': 'Povezave / Warpi',
-    'mv.dreams.title': 'Sanje iz te lokacije',
+    'mv.children.title': 'Podlokacije',
+    'mv.dreams.counter.total': 'sanj',
+    'mv.dreams.counter.filtered': 'zadetkov',
+    'mv.dreams.counter.none': 'Ni zadetkov za',
     'mv.dreams.search.placeholder': 'Išči znotraj te lokacije...',
     'mv.dreams.empty': 'Ni sanj za to lokacijo.',
-    'mv.dreams.empty_hint': 'Ime lokacije mora biti v vsebini sanj.',
-    'mv.dreams.no_table': 'Tabela SleepCycle ni dostopna.',
+    'mv.dreams.loading': 'Nalagam sanje…',
+    'mv.dreams.load_more': 'Prikaži več',
     'mv.dreaming': 'Sanjarjenje',
-    'type.personal': '⬤ Osebna lokacija',
-    'type.archetype': '■ Arhetip',
-    'type.dreamsign': '▬ Dream Sign',
+    'mv.name.label': 'Ime lokacije',
+    'mv.notes.label': 'Opombe',
+    'mv.notes.placeholder': 'Tvoja interpretacija te lokacije...',
+    'mv.parent.label': 'Skupina',
+    'mv.parent.none': '— brez skupine —',
+    'mv.terms.label': 'Iskalni izrazi',
+    'mv.terms.hint': '— ločeni z vejico',
+    'mv.terms.searching': 'Iščem...',
+    'mv.terms.no_suggestions': 'Ni najdenih oblik v bazi.',
+    'mv.terms.placeholder': 'soteska, sotesko, soteski...',
+    'mv.terms.suggest': '✦ Predlagaj iz baze',
+    'mv.pin.toggle_closed': '📌 Pripni sanje ▼',
+    'mv.pin.toggle_open': '📌 Pripni sanje ▲',
+    'mv.pin.no_results': 'Ni zadetkov.',
+    'mv.pin.search.placeholder': 'Datum ali del besedila...',
+    'mv.set_home': 'Označi kot Dom',
+    'mv.set_home_hint': 'Nastavi to lokacijo kot središče karte',
+
+    // ── Insights panel ───────────────────────────────────
+    'insights.no_db': 'Naloži bazo za prikaz insights.',
+    'insights.top_freq': 'Top lokacije po frekvenci',
+    'insights.low_stab': 'Nizka stabilnost',
+    'insights.cold': 'Neaktivne (6+ mesecev)',
+    'insights.isolated': 'Izolirane (brez warpov)',
+    'insights.stats': 'Splošne statistike',
+    'insights.total_nodes': 'Skupaj nodov',
+    'insights.total_warps': 'Skupaj warpov',
+    'insights.avg_freq': 'Povprečna frekvenca',
+    'insights.avg_stab': 'Povprečna stabilnost',
+    'insights.isolated_count': 'Izolirani nodi',
+
+    // ── Iskanje lokacij (Ctrl+F) ─────────────────────────
+    'search.node.placeholder': 'Išči lokacijo…',
+    'search.node.hints': '<kbd>↑↓</kbd> navigacija &nbsp; <kbd>Enter</kbd> odpri &nbsp; <kbd>Esc</kbd> zapri',
+
+    // ── Timeline ─────────────────────────────────────────
+    'tl.no_data': 'Ni podatkov za prikaz. Poskusi brez filtrov.',
+    'tl.load_db': 'Naloži bazo sanj za prikaz timeline-a.',
+    'tl.click_hint': 'Klikni za odprtje na karti',
+    'tl.opened_notice': 'Odprto: %s',
+    'tl.not_in_atlas': 'Ta sanje ("%s…") se še ne ujemajo z nobenim bubble-om — dodaj ustrezne Search Terms obstoječi Lokaciji ali ustvari novo.',
+    'tl.unmapped': 'Neuvrščeno',
+    'tl.building': 'Gradim časovnico…',
+    'tl.wheel_hint': 'Scroll: vrstice · Ctrl+Scroll: zoom',
+    'tl.search_not_visible': '"%s" (še) nima nobene sanje na Timeline-u.',
+    'tl.filter.label': 'Filter:',
+    'tl.filter.all': 'Vse',
+    'tl.filter.orbis_only': 'Samo Orbis',
+    'tl.top.all': 'Vse',
+    'tl.count.hint': 'Prikazanih lokacij (glede na Filter + Top)',
+    'tl.exit_button': '✕ Karta',
+
+    // ── Tooltip / status bar ─────────────────────────────
     'tooltip.stability': 'Stabilnost',
     'status.nodes': 'Nodi',
     'status.warps': 'Warpi',
     'status.dreams': 'Sanje',
+
+    // ── Export ───────────────────────────────────────────
+    'export.no_db': 'Ni baze za izvoz.',
+    'export.unsaved_hint': 'Neshranjene spremembe — klikni za export',
+
+    // ── Help panel ───────────────────────────────────────
     'help.title': 'ORBIS v9 — Navodila',
-    'help.db.label': 'Naloži bazo:',
-    'help.db.text': 'Sprejme .sqlite datoteko z Atlas_Nodes, Atlas_Warps in SleepCycle strukturo.',
-    'help.discovery.label': 'Discovery:',
-    'help.discovery.text': 'Iskanje + štetje zadetkov po vseh sanjah.',
-    'help.archetype.label': 'Arhetipi:',
-    'help.archetype.text': 'Kvadratni nodi — simbolne, ne-osebne lokacije.',
-    'help.warps.label': 'Warpi:',
-    'help.warps.text': 'Rdeče animirane linije. Iskanje z filtrom v warp meniju.',
-    'help.ds.label': 'Dream Signs:',
-    'help.ds.text': 'Glitch markerji — točke najlažje lucidnosti.',
-    'help.click.label': 'Edit noda:',
-    'help.click.text': 'Klikni ime za urejanje, slider za stabilnost. Dom je fiksiran na sredini.',
-    'help.tables.title': 'ZAHTEVANE TABELE:',
-    'help.shortcuts': 'Tipka <b>H</b> = ta meni &nbsp;|&nbsp; <b>Drag</b> = premik noda &nbsp;|&nbsp; <b>Esc</b> = zapri',
+    'help.intro': 'Orbis mapira ponavljajoče se lokacije v tvojih sanjah. Vsak mehurček je lokacija; aplikacija sanje samodejno poveže z njo z ujemanjem besedila.',
     'help.close': 'Zapri',
-	
-	'warp.error_no_selection':  'Prosim, izberi izvorno IN ciljno lokacijo.',
-	'warp.error_too_few_nodes': 'Za warp potrebuješ vsaj dve lokaciji.',
-	
+
+    'help.section.quickstart': 'Hitri začetek',
+    'help.quickstart.1': '1. Naloži .sqlite bazo ali začni s prazno.',
+    'help.quickstart.2': '2. Z Discovery poišči ponavljajoča se mesta v besedilu sanj.',
+    'help.quickstart.3': '3. Ustvari Lokacijo za eno od njih, jo odpri in preklopi na Uredi.',
+    'help.quickstart.4': '4. Nastavi iskalne izraze, da se ujemajoče sanje povežejo samodejno.',
+    'help.quickstart.5': '5. Ročno pripni sanje, ki jih samodejno iskanje zgreši.',
+
+    'help.section.map': 'Upravljanje karte',
+    'help.map.click': 'Klik na mehurček → odpre podrobnosti',
+    'help.map.drag': 'Povleci mehurček → premakni',
+    'help.map.pan': 'Povleci prazen prostor → pan pogleda',
+    'help.map.zoom': 'Scroll → povečava/pomanjšava',
+    'help.map.ctrlclick': 'Ctrl+klik na dva mehurčka → poveže z warpom',
+
+    'help.section.masterview': 'Podrobnosti lokacije',
+    'help.masterview.view': '<span style="color:var(--muted)">👁 Pregled</span> — sanje, statistika, warpi',
+    'help.masterview.edit': '<span style="color:var(--muted)">✏ Uredi</span> — ime, tip, skupina, iskalni izrazi',
+    'help.masterview.terms': 'Iskalni izrazi → natančno ujemanje sanj',
+    'help.masterview.pin': '📌 Pripni sanje → ročno povezovanje',
+
+    'help.section.indicators': 'Indikatorji na mehurčkih',
+    'help.indicator.has_terms': '<span style="color:#66fcf1">●</span> Iskalni izrazi so nastavljeni',
+    'help.indicator.no_terms': '<span style="color:#ff4d4d">●</span> Iskalni izrazi manjkajo',
+
+    'help.section.shortcuts_map': 'Bližnjice — karta',
+    'help.shortcut.search': '<kbd>Ctrl+F</kbd> Najdi lokacijo',
+    'help.shortcut.home': '<kbd>G</kbd> Pojdi na Dom',
+    'help.shortcut.timeline': '<kbd>T</kbd> Timeline',
+    'help.shortcut.insights': '<kbd>I</kbd> Insights',
+    'help.shortcut.discovery': '<kbd>D</kbd> Fokus na Discovery',
+    'help.shortcut.minimap': '<kbd>M</kbd> Preklopi minimap',
+    'help.shortcut.help': '<kbd>H</kbd> Pomoč',
+    'help.shortcut.zoom': '<kbd>+</kbd> / <kbd>-</kbd> Zoom',
+    'help.shortcut.resetzoom': '<kbd>0</kbd> Ponastavi zoom',
+    'help.shortcut.resetcam': '<kbd>Ctrl+0</kbd> Ponastavi kamero',
+    'help.shortcut.closepanels': '<kbd>Esc</kbd> Zapri zadnje okno',
+
+    'help.section.shortcuts_edit': 'Bližnjice — urejanje',
+    'help.shortcut.undo': '<kbd>Ctrl+Z</kbd> Razveljavi',
+    'help.shortcut.redo': '<kbd>Ctrl+Y</kbd> Uveljavi',
+    'help.shortcut.export': '<kbd>Ctrl+S</kbd> Izvozi bazo',
+
+    'help.section.database': 'Baza',
+    'help.database.text': 'Deluje katerakoli .sqlite datoteka, če ima tabele SleepCycle/Dreams/Location. Orbis samodejno doda svoje tabele:',
+
 };
-
-// Dodatki v7.4 — skupiniranje
-window.LANG_SL['layer.groups'] = 'Skupine';
-window.LANG_SL['mv.parent.label'] = 'Skupina';
-window.LANG_SL['mv.parent.none'] = '— brez skupne —';
-window.LANG_SL['mv.children.title'] = 'Podlokacije';
-window.LANG_SL['node.confirm_delete_parent'] = 'Izbriši "%s"? Ima %s podlokacij, ki bodo osirotele.';
-window.LANG_SL['node.error_deep_hierarchy'] = 'Podlokacija ne more biti starš druge lokacije (samo en nivo globine).';
-window.LANG_SL['help.click.text'] = 'V kartici lokacije nastavi skupino (Skupina dropdown). Premik parenta premakne celo skupino.';
-
-// Dodatki v7.4 — krog B
-window.LANG_SL['mv.set_home'] = 'Označi kot Dom'; // BUGFIX: koda že doda '⌂ ' spredaj, zato je '★ Dom' ustvaril podvojeno ikono ("⌂ ★ Dom")
-window.LANG_SL['node.confirm_set_home'] = 'Nastavi "%s" kot Dom? Prejšnji Dom bo razrešen.';
-window.LANG_SL['help.shortcuts'] = 'Tipka <b>H</b> = meni &nbsp;|&nbsp; <b>0</b> = pojdi na dom &nbsp;|&nbsp; <b>+/-</b> = zoom &nbsp;|&nbsp; <b>↑↓←→</b> = premik &nbsp;|&nbsp; <b>Alt+drag</b> = pan &nbsp;|&nbsp; <b>Kolešček</b> = zoom';

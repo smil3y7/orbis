@@ -1,18 +1,27 @@
 window.LANG_EN = {
-    'app.subtitle': 'SINGULARITY v7.2',
+
+    // ── App ──────────────────────────────────────────────
+    'app.subtitle': 'SINGULARITY',
+    'changelog.title': 'Changelog',
+
+    // ── Database ─────────────────────────────────────────
     'db.title': 'Load Database',
+    'db.choose': '📂 Choose file...',
     'db.loaded': '✓ Database loaded: ',
     'db.error': '✗ Error: ',
-    'db.choose': '📂 Choose file...',
+    'db.loading': 'Loading database…',
+
+    // ── Discovery ────────────────────────────────────────
     'discovery.title': 'Discovery Engine',
     'discovery.placeholder': 'Search dream patterns...',
     'discovery.button': 'Mine',
     'discovery.searching': 'Searching...',
     'discovery.no_results': 'No results.',
-    'discovery.error': 'Error: ',
     'discovery.counter.one': 'dream contains',
     'discovery.counter.few': 'dreams contain',
     'discovery.counter.many': 'dreams contain',
+
+    // ── Locations (nodes) ────────────────────────────────
     'node.title': 'New Location',
     'node.placeholder': 'Location name',
     'node.type.personal': 'Personal (Circle)',
@@ -22,7 +31,12 @@ window.LANG_EN = {
     'node.default_name': 'Unnamed',
     'node.error_create': 'Error creating node: ',
     'node.confirm_delete': 'Delete location "%s"?',
+    'node.confirm_delete_parent': 'Delete "%s"? It has %s sub-locations that will be ungrouped.',
     'node.error_delete': 'Error deleting: ',
+    'node.error_deep_hierarchy': 'A sub-location cannot be a parent of another location (one level only).',
+    'node.confirm_set_home': 'Set "%s" as the new Home? The current Home will be unset.',
+
+    // ── Warps ────────────────────────────────────────────
     'warp.title': 'Warp (Anomaly)',
     'warp.search.from': 'Search source location…',
     'warp.search.to': 'Search target location…',
@@ -31,71 +45,170 @@ window.LANG_EN = {
     'warp.error_same': 'Warp must connect two different locations.',
     'warp.error_exists': 'A warp between these locations already exists.',
     'warp.error_create': 'Error creating warp: ',
-    'export.button': 'Export .sqlite',
-    'export.no_db': 'No database to export.',
-    'export.unsaved_hint': 'Unsaved changes — click to export',
-    'mv.dreams.counter.total': 'dreams',
-    'mv.dreams.counter.filtered': 'results',
-    'mv.dreams.counter.none': 'No results for',
+    'warp.error_no_selection': 'Please select both a source and a target location.',
+    'warp.error_too_few_nodes': 'You need at least two locations to create a warp.',
+    'warp.twoway': 'Two-way connection',
+    'warp.oneway_out': 'Outgoing connection',
+    'warp.oneway_in': 'Incoming connection',
+    'warp.toggle_oneway': 'Toggle direction',
+    'warp.flip': 'Flip direction',
+    'warp.delete': 'Delete warp',
+    'warp.link_pick_second': 'Warp from "%s" — now Ctrl+click the target location',
+    'warp.link_cancelled': 'Warp link cancelled',
+    'warp.link_created': 'Warp created: %s → %s',
+
+    // ── Forgetting ───────────────────────────────────────
+    'forget.title': 'Forgetting',
+    'forget.enable': 'Auto forgetting',
+    'forget.rate': 'Decay rate',
+    'forget.rate.slow': 'Mild (0.2/mo)',
+    'forget.rate.med': 'Medium (0.5/mo)',
+    'forget.rate.fast': 'Aggressive (1/mo)',
+    'forget.include_home': 'Include HOME node',
+    'forget.apply': 'Update stability',
+    'forget.ref_today': 'Reference: today',
+    'forget.ref_last': 'Reference: last entry',
+    'forget.updated': 'Updated',
+    'forget.skipped': 'Skipped',
+
+    // ── Map layers ───────────────────────────────────────
     'layer.fog': 'Fog',
     'layer.warps': 'Warps',
     'layer.arch': 'Archetypes',
     'layer.ds': 'Dream Signs',
+    'layer.groups': 'Groups',
+
+    // ── Location details (Master View) ──────────────────
+    'mv.tab.view': '👁 View',
+    'mv.tab.edit': '✏ Edit',
     'mv.delete': 'Delete',
     'mv.stability.label': 'Stability',
     'mv.type.personal': 'Personal',
     'mv.type.archetype': 'Archetype',
     'mv.type.dreamsign': 'Dream Sign',
-    'mv.save': '✓',
     'mv.stat.dreams': 'Dreams',
     'mv.stat.stability': 'Stability',
     'mv.stat.warps': 'Warps',
     'mv.connections.title': 'Connections / Warps',
-    'mv.dreams.title': 'Dreams from this location',
+    'mv.children.title': 'Sub-locations',
+    'mv.dreams.counter.total': 'dreams',
+    'mv.dreams.counter.filtered': 'results',
+    'mv.dreams.counter.none': 'No results for',
     'mv.dreams.search.placeholder': 'Search within this location...',
     'mv.dreams.empty': 'No dreams for this location.',
-    'mv.dreams.empty_hint': 'Location name must appear in dream content.',
-    'mv.dreams.no_table': 'SleepCycle table not accessible.',
+    'mv.dreams.loading': 'Loading dreams…',
+    'mv.dreams.load_more': 'Load more',
     'mv.dreaming': 'Dreaming',
-    'type.personal': '⬤ Personal location',
-    'type.archetype': '■ Archetype',
-    'type.dreamsign': '▬ Dream Sign',
+    'mv.name.label': 'Location name',
+    'mv.notes.label': 'Notes',
+    'mv.notes.placeholder': 'Your interpretation of this location...',
+    'mv.parent.label': 'Group',
+    'mv.parent.none': '— no group —',
+    'mv.terms.label': 'Search terms',
+    'mv.terms.hint': '— comma separated',
+    'mv.terms.searching': 'Searching...',
+    'mv.terms.no_suggestions': 'No forms found in database.',
+    'mv.terms.placeholder': 'canyon, gorge, ravine...',
+    'mv.terms.suggest': '✦ Suggest from database',
+    'mv.pin.toggle_closed': '📌 Pin dreams ▼',
+    'mv.pin.toggle_open': '📌 Pin dreams ▲',
+    'mv.pin.no_results': 'No results.',
+    'mv.pin.search.placeholder': 'Date or part of the text...',
+    'mv.set_home': 'Set as Home',
+    'mv.set_home_hint': 'Set this location as the center of the map',
+
+    // ── Insights panel ───────────────────────────────────
+    'insights.no_db': 'Load a database to view insights.',
+    'insights.top_freq': 'Top locations by frequency',
+    'insights.low_stab': 'Low stability',
+    'insights.cold': 'Inactive (6+ months)',
+    'insights.isolated': 'Isolated (no warps)',
+    'insights.stats': 'General statistics',
+    'insights.total_nodes': 'Total nodes',
+    'insights.total_warps': 'Total warps',
+    'insights.avg_freq': 'Avg. frequency',
+    'insights.avg_stab': 'Avg. stability',
+    'insights.isolated_count': 'Isolated nodes',
+
+    // ── Location search overlay (Ctrl+F) ────────────────
+    'search.node.placeholder': 'Search for a location…',
+    'search.node.hints': '<kbd>↑↓</kbd> navigate &nbsp; <kbd>Enter</kbd> open &nbsp; <kbd>Esc</kbd> close',
+
+    // ── Timeline ─────────────────────────────────────────
+    'tl.no_data': 'No data to display. Try removing filters.',
+    'tl.load_db': 'Load a dream database to view timeline.',
+    'tl.click_hint': 'Click to open on the map',
+    'tl.opened_notice': 'Opened: %s',
+    'tl.not_in_atlas': 'This dream ("%s…") doesn\'t match any bubble yet — add matching Search Terms to an existing Location, or create a new one.',
+    'tl.unmapped': 'Unmapped',
+    'tl.building': 'Building timeline…',
+    'tl.wheel_hint': 'Scroll: rows · Ctrl+Scroll: zoom',
+    'tl.search_not_visible': '"%s" doesn\'t have any dreams on the Timeline yet.',
+    'tl.filter.label': 'Filter:',
+    'tl.filter.all': 'All',
+    'tl.filter.orbis_only': 'Orbis only',
+    'tl.top.all': 'All',
+    'tl.count.hint': 'Locations shown (Filter + Top applied)',
+    'tl.exit_button': '✕ Map',
+
+    // ── Tooltip / status bar ─────────────────────────────
     'tooltip.stability': 'Stability',
     'status.nodes': 'Nodes',
     'status.warps': 'Warps',
     'status.dreams': 'Dreams',
+
+    // ── Export ───────────────────────────────────────────
+    'export.no_db': 'No database to export.',
+    'export.unsaved_hint': 'Unsaved changes — click to export',
+
+    // ── Help panel ───────────────────────────────────────
     'help.title': 'ORBIS v9 — Help',
-    'help.db.label': 'Load database:',
-    'help.db.text': 'Accepts a .sqlite file with Atlas_Nodes, Atlas_Warps and SleepCycle structure.',
-    'help.discovery.label': 'Discovery:',
-    'help.discovery.text': 'Search + count results across all dreams.',
-    'help.archetype.label': 'Archetypes:',
-    'help.archetype.text': 'Square nodes — symbolic, non-personal locations.',
-    'help.warps.label': 'Warps:',
-    'help.warps.text': 'Red animated lines. Search filter in warp menu.',
-    'help.ds.label': 'Dream Signs:',
-    'help.ds.text': 'Glitch markers — points of easiest lucidity.',
-    'help.click.label': 'Edit node:',
-    'help.click.text': 'Click name to edit, slider for stability. Home is fixed at centre.',
-    'help.tables.title': 'REQUIRED TABLES:',
-    'help.shortcuts': 'Key <b>H</b> = this menu &nbsp;|&nbsp; <b>Drag</b> = move node &nbsp;|&nbsp; <b>Esc</b> = close',
+    'help.intro': 'Orbis maps recurring locations across your dreams. Each bubble is a location; the app links dreams to it automatically by matching text.',
     'help.close': 'Close',
-	
-	'warp.error_no_selection':  'Please select both a source and a target location.',
-	'warp.error_too_few_nodes': 'You need at least two locations to create a warp.',	
-	
+
+    'help.section.quickstart': 'Quick start',
+    'help.quickstart.1': '1. Load a .sqlite database, or start with an empty one.',
+    'help.quickstart.2': '2. Use Discovery to search your dream text for recurring places.',
+    'help.quickstart.3': '3. Create a Location for one, then open it and switch to Edit.',
+    'help.quickstart.4': '4. Set its search terms so matching dreams link automatically.',
+    'help.quickstart.5': '5. Pin any dreams the automatic search misses, by hand.',
+
+    'help.section.map': 'Map controls',
+    'help.map.click': 'Click a bubble → open its details',
+    'help.map.drag': 'Drag a bubble → move it',
+    'help.map.pan': 'Drag empty space → pan the view',
+    'help.map.zoom': 'Scroll → zoom in / out',
+    'help.map.ctrlclick': 'Ctrl+click two bubbles → connect them with a Warp',
+
+    'help.section.masterview': 'Location details',
+    'help.masterview.view': '<span style="color:var(--muted)">👁 View</span> — dreams, stats, warps',
+    'help.masterview.edit': '<span style="color:var(--muted)">✏ Edit</span> — name, type, group, search terms',
+    'help.masterview.terms': 'Search terms → precise dream matching',
+    'help.masterview.pin': '📌 Pin dreams → manual linking',
+
+    'help.section.indicators': 'Bubble indicators',
+    'help.indicator.has_terms': '<span style="color:#66fcf1">●</span> Search terms are set',
+    'help.indicator.no_terms': '<span style="color:#ff4d4d">●</span> Search terms are missing',
+
+    'help.section.shortcuts_map': 'Shortcuts — map',
+    'help.shortcut.search': '<kbd>Ctrl+F</kbd> Find a location',
+    'help.shortcut.home': '<kbd>G</kbd> Go to Home',
+    'help.shortcut.timeline': '<kbd>T</kbd> Timeline',
+    'help.shortcut.insights': '<kbd>I</kbd> Insights',
+    'help.shortcut.discovery': '<kbd>D</kbd> Focus Discovery',
+    'help.shortcut.minimap': '<kbd>M</kbd> Toggle minimap',
+    'help.shortcut.help': '<kbd>H</kbd> Help',
+    'help.shortcut.zoom': '<kbd>+</kbd> / <kbd>-</kbd> Zoom',
+    'help.shortcut.resetzoom': '<kbd>0</kbd> Reset zoom',
+    'help.shortcut.resetcam': '<kbd>Ctrl+0</kbd> Reset camera',
+    'help.shortcut.closepanels': '<kbd>Esc</kbd> Close last window',
+
+    'help.section.shortcuts_edit': 'Shortcuts — editing',
+    'help.shortcut.undo': '<kbd>Ctrl+Z</kbd> Undo',
+    'help.shortcut.redo': '<kbd>Ctrl+Y</kbd> Redo',
+    'help.shortcut.export': '<kbd>Ctrl+S</kbd> Export database',
+
+    'help.section.database': 'Database',
+    'help.database.text': 'Any .sqlite file works, as long as it has SleepCycle/Dreams/Location tables. Orbis adds its own tables automatically:',
+
 };
-
-// Additions v7.4 — grouping
-window.LANG_EN['layer.groups'] = 'Groups';
-window.LANG_EN['mv.parent.label'] = 'Group';
-window.LANG_EN['mv.parent.none'] = '— no group —';
-window.LANG_EN['mv.children.title'] = 'Sub-locations';
-window.LANG_EN['node.confirm_delete_parent'] = 'Delete "%s"? It has %s sub-locations that will be ungrouped.';
-window.LANG_EN['node.error_deep_hierarchy'] = 'A sub-location cannot be a parent of another location (one level only).';
-window.LANG_EN['help.click.text'] = 'Set a group in the location card (Group dropdown). Moving a parent moves the whole group.';
-
-// Additions v7.4 — round B
-window.LANG_EN['mv.set_home'] = 'Set as Home'; // BUGFIX: code already prepends '⌂ ', so '★ Home' produced a duplicate icon ("⌂ ★ Home")
-window.LANG_EN['node.confirm_set_home'] = 'Set "%s" as Home? The previous Home will be unset.';
-window.LANG_EN['help.shortcuts'] = 'Key <b>H</b> = menu &nbsp;|&nbsp; <b>0</b> = go home &nbsp;|&nbsp; <b>+/-</b> = zoom &nbsp;|&nbsp; <b>↑↓←→</b> = pan &nbsp;|&nbsp; <b>Alt+drag</b> = pan &nbsp;|&nbsp; <b>Wheel</b> = zoom';

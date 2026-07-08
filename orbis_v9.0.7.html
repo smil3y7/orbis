@@ -2,7 +2,7 @@
 <html lang="sl">
 <head>
     <meta charset="UTF-8">
-    <title>Orbis v9.0.2</title>
+    <title>Orbis</title>
     <script src="lang/sl.js"></script>
     <script src="lang/en.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
@@ -175,6 +175,11 @@
         .mv-dream-entry .entry-text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
         .mv-dream-entry.expanded .entry-text { -webkit-line-clamp: unset; }
         .mv-dream-entry mark { background: rgba(102,252,241,0.2); color: var(--accent); border-radius: 2px; padding: 0 1px; }
+        .mv-dream-entry.flash { animation: mv-dream-flash 1.6s ease-out; }
+        @keyframes mv-dream-flash {
+            0%   { box-shadow: 0 0 0 2px var(--accent), 0 0 22px rgba(102,252,241,0.55); border-color: var(--accent); }
+            100% { box-shadow: 0 0 0 0 rgba(102,252,241,0); }
+        }
 
         #help-panel {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -183,6 +188,16 @@
             border-radius: 12px; backdrop-filter: blur(20px); z-index: 100;
             box-shadow: 0 0 40px rgba(0,0,0,0.9); display: none;
         }
+
+        #changelog-panel {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 520px; max-width: 90vw; max-height: 80vh; padding: 20px;
+            background: rgba(8,9,10,0.97); border: 1px solid var(--accent);
+            border-radius: 12px; backdrop-filter: blur(20px); z-index: 100;
+            box-shadow: 0 0 40px rgba(0,0,0,0.9);
+            display: none; flex-direction: column;
+        }
+        #changelog-body { overflow-y: auto; font-size: 0.8em; flex: 1; }
 
         #discovery-counter { font-size: 0.72em; font-family: 'JetBrains Mono', monospace; color: var(--accent); margin: 6px 0 4px; display: none; }
 
@@ -345,15 +360,48 @@
         .ip-chip:hover { border-color: var(--accent); color: var(--accent); }
         .ip-chip.warn { border-color: var(--warp); color: var(--warp); }
         .ip-chip.cold { border-color: #555; color: #555; }
+
+        /* Modal za nalaganje baze — prekrije zaslon, dokler se SQLite baza (re)inicializira */
+        #db-loading-overlay {
+            display: none; position: fixed; inset: 0; z-index: 10000;
+            background: rgba(5,5,6,0.72); backdrop-filter: blur(2px);
+            align-items: center; justify-content: center;
+        }
+        #db-loading-overlay.visible { display: flex; }
+        .db-loading-box {
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            background: rgba(8,9,10,0.96); border: 1px solid #333; border-radius: 10px;
+            padding: 28px 36px; box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+        }
+        .db-loading-spinner {
+            width: 34px; height: 34px; border-radius: 50%;
+            border: 3px solid #262626; border-top-color: var(--accent);
+            animation: db-spin 0.8s linear infinite;
+        }
+        @keyframes db-spin { to { transform: rotate(360deg); } }
+        .db-loading-text {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8em;
+            color: var(--muted); letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body>
+
+<div id="db-loading-overlay">
+    <div class="db-loading-box">
+        <div class="db-loading-spinner"></div>
+        <div class="db-loading-text" id="db-loading-text" data-i18n="db.loading">Nalagam bazo…</div>
+    </div>
+</div>
 
 <div id="sidebar">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
             <div style="color:var(--accent); font-weight:800; font-size:0.9em; letter-spacing:2px;">ORBIS</div>
-            <div data-i18n="app.subtitle" style="color:var(--muted); font-size:0.65em; letter-spacing:1px;">SINGULARITY v9.0.2</div>
+            <div style="color:var(--muted); font-size:0.65em; letter-spacing:1px;">
+                <span data-i18n="app.subtitle">SINGULARITY</span>
+                <span id="app-version-lbl"></span>
+            </div>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
             <div id="lang-switcher">
@@ -520,6 +568,7 @@
             <div id="mv-dream-search-row" style="padding:0 18px 6px;">
                 <div class="search-wrap">
                     <input type="text" id="mv-dream-search"
+                           data-i18n-placeholder="mv.dreams.search.placeholder"
                            placeholder="Išči znotraj te lokacije..."
                            oninput="onSearchInput(this, 'clearDreamSearch'); filterDreamList(this.value)"
                            style="margin-bottom:4px;">
@@ -544,6 +593,7 @@
                 <div id="mv-pin-search" style="display:none; margin-top:6px;">
                     <div class="search-wrap" style="margin-bottom:4px;">
                         <input type="text" id="mv-pin-input"
+                            data-i18n-placeholder="mv.pin.search.placeholder"
                             placeholder="Datum ali del besedila..."
                             oninput="searchDreamsToPin(this.value)"
                             style="margin:0; font-size:0.78em;">
@@ -596,10 +646,11 @@
                 </label>
                 <textarea id="mv-search-terms" rows="2"
                     style="width:100%; margin:0; font-family:'JetBrains Mono',monospace; font-size:0.78em; resize:vertical; min-height:44px; box-sizing:border-box;"
+                    data-i18n-placeholder="mv.terms.placeholder"
                     placeholder="soteska, sotesko, soteski..."
                     onchange="saveSearchTerms(this.value)"></textarea>
                 <div style="display:flex; gap:6px; margin-top:4px; flex-wrap:wrap;" id="mv-term-suggestions"></div>
-                <button onclick="loadTermSuggestions()" class="btn-suggest" style="margin-top:6px; width:auto; padding:4px 12px;">
+                <button onclick="loadTermSuggestions()" class="btn-suggest" data-i18n="mv.terms.suggest" style="margin-top:6px; width:auto; padding:4px 12px;">
                     ✦ Predlagaj iz baze
                 </button>
             </div>
@@ -623,78 +674,72 @@
 
     <!-- HELP PANEL -->
     <div id="help-panel">
-        <h2 style="color:var(--accent); margin-top:0; font-size:1em; letter-spacing:1px;" data-i18n="help.title">ORBIS v9 — Navodila</h2>
+        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <h2 style="color:var(--accent); margin-top:0; font-size:1em; letter-spacing:1px;" data-i18n="help.title">ORBIS v9 — Help</h2>
+            <span id="help-changelog-lbl" onclick="toggleChangelog()"
+                style="cursor:pointer; color:var(--muted); font-size:0.7em; text-decoration:underline dotted; text-underline-offset:2px;"></span>
+        </div>
+        <p style="margin:0 0 14px; font-size:0.8em; color:var(--muted); line-height:1.6;" data-i18n="help.intro">Orbis maps recurring locations across your dreams. Each bubble is a location; the app links dreams to it automatically by matching text.</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:0.78em; line-height:1.7;">
             <div>
-                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.workflow">Workflow</b></p>
-                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.workflow.1">1. Discovery → poišči lokacijo</p>
-                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.workflow.2">2. Dodaj v atlas (+ gumb pri zadetku)</p>
-                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.workflow.3">3. Nastavi iskalne izraze v Uredi</p>
-                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.workflow.4">4. Pripni manjkajoče sanje ročno</p>
+                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.quickstart">Quick start</b></p>
+                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.quickstart.1">1. Load a .sqlite database, or start with an empty one.</p>
+                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.quickstart.2">2. Use Discovery to search your dream text for recurring places.</p>
+                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.quickstart.3">3. Create a Location for one, then open it and switch to Edit.</p>
+                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.quickstart.4">4. Set its search terms so matching dreams link automatically.</p>
+                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.quickstart.5">5. Pin any dreams the automatic search misses, by hand.</p>
                 <p style="margin:0 0 8px;"></p>
-                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.map">Karta</b></p>
-                <p style="margin:0 0 4px;">Klik na mehurček → Pregled lokacije</p>
-                <p style="margin:0 0 4px;">Drag mehurček → premakni</p>
-                <p style="margin:0 0 4px;">Drag po praznem → pan</p>
-                <p style="margin:0 0 4px;">Scroll → zoom</p>
-                <p style="margin:0 0 4px;">Dvojni klik → nova lokacija</p>
+                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.map">Map controls</b></p>
+                <p style="margin:0 0 4px;" data-i18n="help.map.click">Click a bubble → open its details</p>
+                <p style="margin:0 0 4px;" data-i18n="help.map.drag">Drag a bubble → move it</p>
+                <p style="margin:0 0 4px;" data-i18n="help.map.pan">Drag empty space → pan the view</p>
+                <p style="margin:0 0 4px;" data-i18n="help.map.zoom">Scroll → zoom in / out</p>
+                <p style="margin:0 0 4px;" data-i18n="help.map.ctrlclick">Ctrl+click two bubbles → connect them with a Warp</p>
                 <p style="margin:0 0 8px;"></p>
-                <p style="margin:0 0 8px;"><b style="color:var(--accent)">Master View</b></p>
-                <p style="margin:0 0 4px;"><span style="color:var(--muted)">👁 Pregled</span> — sanje, stats, warpi</p>
-                <p style="margin:0 0 4px;"><span style="color:var(--muted)">✏ Uredi</span> — ime, tip, parent, iskalni izrazi</p>
-                <p style="margin:0 0 4px;">Iskalni izrazi → natančno iskanje sanj</p>
-                <p style="margin:0 0 4px;">📌 Pripni sanje → ročno mapiranje</p>
+                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.masterview">Location details</b></p>
+                <p style="margin:0 0 4px;" data-i18n-html="help.masterview.view"><span style="color:var(--muted)">👁 View</span> — dreams, stats, warps</p>
+                <p style="margin:0 0 4px;" data-i18n-html="help.masterview.edit"><span style="color:var(--muted)">✏ Edit</span> — name, type, group, search terms</p>
+                <p style="margin:0 0 4px;" data-i18n="help.masterview.terms">Search terms → precise dream matching</p>
+                <p style="margin:0 0 4px;" data-i18n="help.masterview.pin">📌 Pin dreams → manual linking</p>
                 <p style="margin:0 0 8px;"></p>
-                <p style="margin:0 0 8px;"><b style="color:var(--accent)">Indikatorji na mehurčkih</b></p>
-                <p style="margin:0 0 4px;"><span style="color:#66fcf1">●</span> Iskalni izrazi nastavljeni</p>
-                <p style="margin:0 0 4px;"><span style="color:#ff4d4d">●</span> Iskalni izrazi manjkajo</p>
+                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.indicators">Bubble indicators</b></p>
+                <p style="margin:0 0 4px;" data-i18n-html="help.indicator.has_terms"><span style="color:#66fcf1">●</span> Search terms are set</p>
+                <p style="margin:0 0 4px;" data-i18n-html="help.indicator.no_terms"><span style="color:#ff4d4d">●</span> Search terms are missing</p>
             </div>
             <div>
-                <p style="margin:0 0 8px;"><b style="color:var(--accent)">Bližnjice — karta</b></p>
-                <p style="margin:0 0 3px;"><kbd>Ctrl+F</kbd> Iskanje lokacij</p>
-                <p style="margin:0 0 3px;"><kbd>G</kbd> Pojdi na DOM</p>
-                <p style="margin:0 0 3px;"><kbd>T</kbd> Timeline</p>
-                <p style="margin:0 0 3px;"><kbd>I</kbd> Insights</p>
-                <p style="margin:0 0 3px;"><kbd>D</kbd> Discovery fokus</p>
-                <p style="margin:0 0 3px;"><kbd>M</kbd> Minimap toggle</p>
-                <p style="margin:0 0 3px;"><kbd>H</kbd> Help</p>
-                <p style="margin:0 0 3px;"><kbd>+</kbd> / <kbd>-</kbd> Zoom</p>
-                <p style="margin:0 0 3px;"><kbd>0</kbd> Reset zoom</p>
-                <p style="margin:0 0 3px;"><kbd>Ctrl+0</kbd> Reset kamera</p>
-                <p style="margin:0 0 3px;"><kbd>Esc</kbd> Zapri panele</p>
+                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.shortcuts_map">Shortcuts — map</b></p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.search"><kbd>Ctrl+F</kbd> Find a location</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.home"><kbd>G</kbd> Go to Home</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.timeline"><kbd>T</kbd> Timeline</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.insights"><kbd>I</kbd> Insights</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.discovery"><kbd>D</kbd> Focus Discovery</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.minimap"><kbd>M</kbd> Toggle minimap</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.help"><kbd>H</kbd> Help</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.zoom"><kbd>+</kbd> / <kbd>-</kbd> Zoom</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.resetzoom"><kbd>0</kbd> Reset zoom</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.resetcam"><kbd>Ctrl+0</kbd> Reset camera</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.closepanels"><kbd>Esc</kbd> Close panels</p>
                 <p style="margin:0 0 8px;"></p>
-                <p style="margin:0 0 8px;"><b style="color:var(--accent)">Bližnjice — urejanje</b></p>
-                <p style="margin:0 0 3px;"><kbd>Ctrl+Z</kbd> Razveljavi</p>
-                <p style="margin:0 0 3px;"><kbd>Ctrl+Y</kbd> Uveljavi</p>
-                <p style="margin:0 0 3px;"><kbd>Ctrl+S</kbd> Izvozi bazo</p>
+                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.shortcuts_edit">Shortcuts — editing</b></p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.undo"><kbd>Ctrl+Z</kbd> Undo</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.redo"><kbd>Ctrl+Y</kbd> Redo</p>
+                <p style="margin:0 0 3px;" data-i18n-html="help.shortcut.export"><kbd>Ctrl+S</kbd> Export database</p>
                 <p style="margin:0 0 8px;"></p>
-                <p style="margin:0 0 8px;"><b style="color:var(--accent)">Baza</b></p>
+                <p style="margin:0 0 8px;"><b style="color:var(--accent)" data-i18n="help.section.database">Database</b></p>
+                <p style="margin:0 0 4px; color:var(--muted); font-size:0.9em;" data-i18n="help.database.text">Any .sqlite file works, as long as it has SleepCycle/Dreams/Location tables. Orbis adds its own tables automatically:</p>
                 <p style="margin:0 0 3px; font-family:'JetBrains Mono',monospace; font-size:0.85em; color:var(--muted);">Atlas_Nodes · Atlas_Warps<br>Atlas_NodeDreams</p>
             </div>
         </div>
         <button id="help-close-btn" onclick="closePanel('help-panel')"
-            class="btn-ghost" style="width:auto; padding:5px 20px; margin-top:12px;" data-i18n="help.close">Zapri</button>
+            class="btn-ghost" style="width:auto; padding:5px 20px; margin-top:12px;" data-i18n="help.close">Close</button>
+    </div>
 
-        <!-- Tech stack + barvna shema -->
-        <div style="margin-top:16px; border-top:1px solid #1a1a1a; padding-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:0.72em;">
-            <div>
-                <p style="color:var(--accent); font-weight:600; margin:0 0 6px; letter-spacing:0.5px;">TECH STACK</p>
-                <p style="color:var(--muted); margin:0 0 3px;">Vanilla JS · HTML5 Canvas</p>
-                <p style="color:var(--muted); margin:0 0 3px;">sql.js 1.6 (SQLite WASM)</p>
-                <p style="color:var(--muted); margin:0 0 3px;">Inter · JetBrains Mono (Google Fonts)</p>
-                <p style="color:var(--muted); margin:0 0 3px;">Single HTML file — brez strežnika</p>
-                <p style="color:var(--muted); margin:0 0 3px;">Baza: SQLite (.sqlite)</p>
-            </div>
-            <div>
-                <p style="color:var(--accent); font-weight:600; margin:0 0 6px; letter-spacing:0.5px;">BARVNA SHEMA</p>
-                <p style="margin:0 0 3px;"><span style="color:#66fcf1">■</span> <span style="color:var(--muted)">#66fcf1 — Accent / Personal</span></p>
-                <p style="margin:0 0 3px;"><span style="color:#ff4d4d">■</span> <span style="color:var(--muted)">#ff4d4d — Warp</span></p>
-                <p style="margin:0 0 3px;"><span style="color:#f7d794">■</span> <span style="color:var(--muted)">#f7d794 — Archetype</span></p>
-                <p style="margin:0 0 3px;"><span style="color:#a29bfe">■</span> <span style="color:var(--muted)">#a29bfe — Dream Sign</span></p>
-                <p style="margin:0 0 3px;"><span style="color:#ffd700">■</span> <span style="color:var(--muted)">#ffd700 — Home</span></p>
-                <p style="margin:0 0 3px;"><span style="color:#555; background:#0d0e10; padding:0 3px;">■</span> <span style="color:var(--muted)">#050506 — Background</span></p>
-            </div>
-        </div>
+    <!-- CHANGELOG PANEL -->
+    <div id="changelog-panel">
+        <h2 style="color:var(--accent); margin-top:0; font-size:1em; letter-spacing:1px;" data-i18n="changelog.title">Changelog</h2>
+        <div id="changelog-body"></div>
+        <button onclick="closePanel('changelog-panel')"
+            class="btn-ghost" style="width:auto; padding:5px 20px; margin-top:12px; flex-shrink:0;" data-i18n="help.close">Close</button>
     </div>
 
     <div id="tooltip"></div>
@@ -713,6 +758,7 @@
         <div style="width:1px; height:14px; background:#2a2a2a; flex-shrink:0;"></div>
         <button onclick="zoomBy(1.25)" title="Povečaj (scroll ↑)">+</button>
         <button onclick="zoomBy(0.8)"  title="Pomanjšaj (scroll ↓)">−</button>
+        <span id="map-zoom-lbl" style="color:var(--accent); min-width:34px; text-align:center; font-size:0.95em;" title="Trenutni zoom">100%</span>
         <button onclick="resetCamera()" title="Ponastavi pogled (Ctrl+0)">↺</button>
         <button id="sb-minimap-btn" onclick="toggleMinimap()" title="Minimap (M)">⊞</button>
         <div style="width:1px; height:14px; background:#2a2a2a; flex-shrink:0;"></div>
@@ -734,21 +780,23 @@
     box-shadow:0 4px 20px rgba(0,0,0,0.6);">
     <span style="color:#66fcf1; font-weight:700; letter-spacing:1px;">TIMELINE</span>
     <span style="width:1px;height:12px;background:#333;"></span>
-    <label style="display:flex;align-items:center;gap:4px;">Filter:
+    <label style="display:flex;align-items:center;gap:4px;"><span data-i18n="tl.filter.label">Filter:</span>
         <select id="tl-filter" onchange="tlSetFilter(this.value)"
             style="background:#111;border:1px solid #333;color:#c5c6c7;border-radius:4px;padding:2px 5px;font-size:0.9em;width:auto;margin:0;">
-            <option value="all">Vse</option>
-            <option value="atlas">Samo atlas</option>
+            <option value="all" data-i18n="tl.filter.all">Vse</option>
+            <option value="atlas" data-i18n="tl.filter.orbis_only">Samo Orbis</option>
         </select>
     </label>
     <label style="display:flex;align-items:center;gap:4px;">Top:
-        <select id="tl-top" onchange="tlSetTop(+this.value)"
+        <select id="tl-top" onchange="tlSetTop(this.value)"
             style="background:#111;border:1px solid #333;color:#c5c6c7;border-radius:4px;padding:2px 5px;font-size:0.9em;width:auto;margin:0;">
+            <option value="all" selected data-i18n="tl.top.all">Vse</option>
             <option value="30">30</option>
-            <option value="50" selected>50</option>
+            <option value="50">50</option>
             <option value="80">80</option>
         </select>
     </label>
+    <span id="tl-count-lbl" style="color:#888;"></span>
     <span style="width:1px;height:12px;background:#333;"></span>
     <label style="display:flex;align-items:center;gap:4px;">Zoom:
         <input type="range" id="tl-zoom-slider" min="0.5" max="8" step="0.1" value="1"
@@ -758,7 +806,8 @@
     </label>
     <button onclick="tlResetView()"
         style="background:none;border:1px solid #333;color:#666;border-radius:4px;padding:2px 8px;cursor:pointer;width:auto;margin:0;font-size:0.9em;">↺</button>
-    <button onclick="switchMode('map')"
+    <span style="color:#444;" data-i18n="tl.wheel_hint">Scroll: vrstice · Ctrl+Scroll: zoom</span>
+    <button onclick="switchMode('map')" data-i18n="tl.exit_button"
         style="background:none;border:1px solid #333;color:#ff4d4d;border-radius:4px;padding:2px 8px;cursor:pointer;width:auto;margin:0;font-size:0.9em;">✕ Karta</button>
 </div>
 
@@ -770,17 +819,16 @@
     font-size:0.78em; line-height:1.6; box-shadow:0 4px 20px rgba(0,0,0,0.8);"></div>
 <div id="node-search-overlay" onclick="if(event.target===this)closeNodeSearch()">
     <div id="node-search-box">
-        <input id="node-search-input" type="text" placeholder="Išči lokacijo…"
+        <input id="node-search-input" type="text" data-i18n-placeholder="search.node.placeholder" placeholder="Išči lokacijo…"
             oninput="onNodeSearchInput(this.value)"
             onkeydown="
-                if(event.key==='Escape'){closeNodeSearch();}
-                else if(event.key==='Enter'){confirmNodeSearch();}
+                if(event.key==='Enter'){confirmNodeSearch();}
                 else if(event.key==='ArrowDown'){event.preventDefault();nodeSearchNavigate(1);}
                 else if(event.key==='ArrowUp'){event.preventDefault();nodeSearchNavigate(-1);}
             ">
         <div id="node-search-meta">
             <span id="node-search-count"></span>
-            <span><kbd>↑↓</kbd> navigacija &nbsp; <kbd>Enter</kbd> odpri &nbsp; <kbd>Esc</kbd> zapri</span>
+            <span data-i18n-html="search.node.hints"><kbd>↑↓</kbd> navigacija &nbsp; <kbd>Enter</kbd> odpri &nbsp; <kbd>Esc</kbd> zapri</span>
         </div>
     </div>
 </div>
@@ -793,73 +841,16 @@ const LANGUAGES = { sl: window.LANG_SL, en: window.LANG_EN };
 let currentLang = localStorage.getItem('orbis_lang') || 'sl';
 
 function t(key, ...args) {
+    // lang/sl.js and lang/en.js are the single source of truth for every UI string
+    // (see the "language files" cleanup — all 152 keys the app uses live there,
+    // nothing else). Previously an inline FALLBACK dict duplicated ~60 of these
+    // keys with its own values; that duplication is exactly what caused keys like
+    // 'help.title' and 'mv.set_home' to silently drift out of sync with the real
+    // lang files. If a key is ever missing from both lang files, we now show the
+    // raw key itself so the gap is obvious and gets fixed at the source instead of
+    // being silently papered over.
     const dict = LANGUAGES[currentLang] || LANGUAGES['sl'];
-    // Inline fallback za ključe ki morda še niso v zunanjih lang datotekah
-    const FALLBACK = {
-        'mv.set_home':          currentLang === 'en' ? 'Set as Home'      : 'Označi kot Dom',
-        'mv.set_home_hint':     currentLang === 'en' ? 'Set this location as the center of the atlas' : 'Nastavi to lokacijo kot središče atlasa',
-        'node.confirm_set_home':currentLang === 'en' ? 'Set "%s" as the new Home? The current Home will be unset.' : 'Nastavi "%s" kot novi Dom? Obstoječi Dom bo odstavljen.',
-        'mv.dreams.loading':    currentLang === 'en' ? 'Loading dreams…'      : 'Nalagam sanje…',
-        'mv.dreams.load_more':  currentLang === 'en' ? 'Load more'             : 'Prikaži več',
-        'tl.no_data':           currentLang === 'en' ? 'No data to display. Try removing filters.' : 'Ni podatkov za prikaz. Poskusi brez filtrov.',
-        'tl.load_db':           currentLang === 'en' ? 'Load a dream database to view timeline.' : 'Naloži bazo sanj za prikaz timeline-a.',
-        'tl.click_hint':        currentLang === 'en' ? 'Click to open in atlas'          : 'Klikni za odprtje v atlasu',
-        'mv.tab.view':          currentLang === 'en' ? '👁 View'                              : '👁 Pregled',
-        'mv.tab.edit':          currentLang === 'en' ? '✏ Edit'                              : '✏ Uredi',
-        'mv.terms.suggest':     currentLang === 'en' ? '✦ Suggest from database'    : '✦ Predlagaj iz baze',
-        'mv.name.label':        currentLang === 'en' ? 'Location name'             : 'Ime lokacije',
-        'mv.terms.label':       currentLang === 'en' ? 'Search terms'              : 'Iskalni izrazi',
-        'mv.terms.hint':        currentLang === 'en' ? '— comma separated'         : '— ločeni z vejico',
-        'mv.terms.searching':   currentLang === 'en' ? 'Searching...'              : 'Iščem...',
-        'mv.terms.no_suggestions': currentLang === 'en' ? 'No forms found in database.' : 'Ni najdenih oblik v bazi.',
-        'mv.notes.label':       currentLang === 'en' ? 'Notes'                     : 'Opombe',
-        'mv.notes.placeholder': currentLang === 'en' ? 'Your interpretation of this location...' : 'Tvoja interpretacija te lokacije...',
-        'mv.pin.toggle_closed': currentLang === 'en' ? '📌 Pin dreams ▼'           : '📌 Pripni sanje ▼',
-        'mv.pin.toggle_open':   currentLang === 'en' ? '📌 Pin dreams ▲'           : '📌 Pripni sanje ▲',
-        'mv.pin.no_results':    currentLang === 'en' ? 'No results.'               : 'Ni zadetkov.',
-        'help.title':           currentLang === 'en' ? 'ORBIS v9 — Help'     : 'ORBIS v9 — Navodila',
-        'help.section.workflow':currentLang === 'en' ? 'Workflow'                  : 'Workflow',
-        'help.section.map':     currentLang === 'en' ? 'Map'                       : 'Karta',
-        'help.workflow.1':      currentLang === 'en' ? '1. Discovery → find location' : '1. Discovery → poišči lokacijo',
-        'help.workflow.2':      currentLang === 'en' ? '2. Add to atlas (+ button)' : '2. Dodaj v atlas (+ gumb)',
-        'help.workflow.3':      currentLang === 'en' ? '3. Set search terms in Edit' : '3. Nastavi iskalne izraze v Uredi',
-        'help.workflow.4':      currentLang === 'en' ? '4. Pin missing dreams manually' : '4. Pripni manjkajoče sanje ročno',
-        'forget.title':         currentLang === 'en' ? 'Forgetting'               : 'Pozabljanje',
-        'forget.enable':        currentLang === 'en' ? 'Auto forgetting'          : 'Avtomatično pozabljanje',
-        'forget.rate':          currentLang === 'en' ? 'Decay rate'               : 'Stopnja padca',
-        'forget.rate.slow':     currentLang === 'en' ? 'Mild (0.2/mo)'            : 'Blago (0.2/mes)',
-        'forget.rate.med':      currentLang === 'en' ? 'Medium (0.5/mo)'          : 'Srednje (0.5/mes)',
-        'forget.rate.fast':     currentLang === 'en' ? 'Aggressive (1/mo)'        : 'Agresivno (1/mes)',
-        'forget.include_home':  currentLang === 'en' ? 'Include HOME node'        : 'Vključi DOM node',
-        'forget.apply':         currentLang === 'en' ? 'Update stability'         : 'Posodobi stabilnost',
-        'forget.ref_today':     currentLang === 'en' ? 'Reference: today'         : 'Referenca: danes',
-        'forget.ref_last':      currentLang === 'en' ? 'Reference: last entry'    : 'Referenca: zadnji vnos',
-        'forget.updated':       currentLang === 'en' ? 'Updated'                  : 'Posodobljeno',
-        'forget.skipped':       currentLang === 'en' ? 'Skipped'                  : 'Preskočeno',
-        'insights.no_db':       currentLang === 'en' ? 'Load a database to view insights.' : 'Naloži bazo za prikaz insights.',
-        'insights.top_freq':    currentLang === 'en' ? 'Top locations by frequency'        : 'Top lokacije po frekvenci',
-        'insights.low_stab':    currentLang === 'en' ? 'Low stability'                     : 'Nizka stabilnost',
-        'insights.cold':        currentLang === 'en' ? 'Inactive (6+ months)'              : 'Neaktivne (6+ mesecev)',
-        'insights.isolated':    currentLang === 'en' ? 'Isolated (no warps)'               : 'Izolirane (brez warpov)',
-        'insights.stats':       currentLang === 'en' ? 'General statistics'                : 'Splošne statistike',
-        'insights.total_nodes': currentLang === 'en' ? 'Total nodes'                       : 'Skupaj nodov',
-        'insights.total_warps': currentLang === 'en' ? 'Total warps'                       : 'Skupaj warpov',
-        'insights.avg_freq':    currentLang === 'en' ? 'Avg. frequency'                    : 'Povprečna frekvenca',
-        'insights.avg_stab':    currentLang === 'en' ? 'Avg. stability'                    : 'Povprečna stabilnost',
-        'insights.isolated_count': currentLang === 'en' ? 'Isolated nodes'                 : 'Izolirani nodi',
-
-        'warp.twoway':          currentLang === 'en' ? 'Two-way connection'    : 'Dvosmerna povezava',
-        'warp.oneway_out':      currentLang === 'en' ? 'Outgoing connection'   : 'Odhodna povezava',
-        'warp.oneway_in':       currentLang === 'en' ? 'Incoming connection'   : 'Prihodna povezava',
-        'warp.toggle_oneway':   currentLang === 'en' ? 'Toggle direction'      : 'Preklopi smer',
-        'warp.flip':            currentLang === 'en' ? 'Flip direction'        : 'Obrni smer',
-        'warp.delete':          currentLang === 'en' ? 'Delete warp'           : 'Izbriši warp',
-
-        // BUGFIX: nova sporočila za validacijo pri ustvarjanju warpov (glej uiCreateWarp)
-        'warp.error_no_selection':   currentLang === 'en' ? 'Please select both a source and a target location.' : 'Prosim, izberi izvorno IN ciljno lokacijo.',
-        'warp.error_too_few_nodes':  currentLang === 'en' ? 'You need at least two locations to create a warp.'   : 'Za warp potrebuješ vsaj dve lokaciji.',
-    };
-    let str = dict?.[key] || LANGUAGES['sl']?.[key] || FALLBACK[key] || key;
+    let str = dict?.[key] ?? LANGUAGES['sl']?.[key] ?? key;
     args.forEach(arg => { str = str.replace('%s', arg); });
     return str;
 }
@@ -886,6 +877,143 @@ function setLang(lang) {
         if (opt.dataset.i18n) opt.textContent = t(opt.dataset.i18n);
     });
     if (activeNode && document.getElementById('master-view').style.display === 'flex') openMasterView(activeNode);
+    // BUGFIX: Insights panel content is built once via buildInsights() and was never
+    // rebuilt when the language changed, so switching SL↔EN while it was open left it
+    // showing the language it happened to be built in.
+    if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
+    // Isti razlog kot zgoraj: changelog besedilo in help-panel label sta zdaj
+    // dvojezična, brez tega bi ostala v jeziku, v katerem sta bila nazadnje izrisana.
+    applyVersionToUI();
+    if (document.getElementById('changelog-panel')?.style.display === 'flex') renderChangelogBody();
+    // Isti razlog še trikrat: db-status ("Baza naložena: ...") je bil prej
+    // trdo besedilo, forgetting datum je bil trdo 'sl-SI' ne glede na jezik,
+    // timeline count-label title prav tako — vsi trije zdaj sledijo jeziku.
+    renderDbStatus();
+    renderForgetStatus();
+    updateTlCountLbl();
+}
+
+// ─────────────────────────────────────────────
+//  VERZIJA & CHANGELOG — ENO mesto za spremembo verzije. Prej je bila verzija
+//  hardkodirana ločeno v <title>, v HTML fallback besedilu IN v obeh lang.js
+//  prevodih (app.subtitle) — zato se je pri bumpu skoraj vedno kje pozabila
+//  posodobiti. Zdaj: spremeni APP_VERSION spodaj, dodaj vnos v CHANGELOG, konec.
+// ─────────────────────────────────────────────
+const APP_VERSION = '9.0.7';
+const CHANGELOG = [
+    {
+        version: '9.0.7', date: '2026-07-08',
+        notes: {
+            sl: [
+                'Popravljeni trije jezikovni spodrsljaji: (1) datum v statusu Pozabljanja je bil vedno formatiran po slovenskih pravilih (npr. ime meseca), tudi v angleškem načinu; (2) enako za datum v Timeline tooltipu ob kliku na piko; (3) "Baza naložena: ime.db" pod izbirnikom datoteke je ostal v jeziku, v katerem si nazadnje naložil bazo, tudi po preklopu na drug jezik (isti vzrok kot pri changelog/insights, popravljenih v 9.0.4/9.0.5).',
+                'Timeline: ob Filter/Top kontrolah je zdaj counter, ki pove, koliko lokacij je trenutno prikazanih (npr. "50/81", ali samo "81" če Top ne odreže ničesar).',
+            ],
+            en: [
+                'Fixed three language-mismatch bugs: (1) the date in the Forgetting status was always formatted the Slovenian way (e.g. month name), even in English mode; (2) same for the date shown in the Timeline tooltip when clicking a dot; (3) "Database loaded: name.db" under the file picker stayed in whichever language the database was loaded in, even after switching to the other language (same root cause as the changelog/insights bugs fixed in 9.0.4/9.0.5).',
+                'Timeline: a counter now sits next to the Filter/Top controls showing how many locations are currently displayed (e.g. "50/81", or just "81" if Top isn\'t cutting anything).',
+            ],
+        }
+    },
+    {
+        version: '9.0.6', date: '2026-07-05',
+        notes: {
+            sl: [
+                'Warp create/delete/flip/toggle-oneway so bili opazno počasni, ker je vsaka od teh operacij sprožila polni refreshData() — ta pa za VSAK node v bazi znova prešteje sanje (SQL LIKE-scan čez celotno SleepCycle tabelo), čeprav warpi nimajo nobene zveze s sanjami. Nova lahka refreshWarpsOnly() posodobi samo warpe; master view po warp operaciji zdaj osveži samo seznam povezav (renderConnectionsSection), ne celega panela.',
+                'Timeline se je znova zgradil od začetka ob vsakem vstopu vanj, tudi če se od zadnjega ogleda ni spremenilo nič. Nova "tlDirty" zastavica: rebuild (in loader) se sproži samo, če so se nodi/warpi/sanje dejansko spremenili od zadnjega izrisa.',
+                'Dodan prikaz trenutnega zoom nivoja karte (%) v status vrstici, med gumbi za zoom — prej ni bilo nobenega indikatorja, koliko je karta trenutno povečana/pomanjšana.',
+            ],
+            en: [
+                'Warp create/delete/flip/toggle-oneway were noticeably slow because each operation triggered a full refreshData() — which recounts dreams for EVERY node in the database (a SQL LIKE-scan across the whole SleepCycle table), even though warps have nothing to do with dreams. A new lightweight refreshWarpsOnly() updates only the warps; the master view now refreshes just the connections list (renderConnectionsSection) after a warp operation, not the whole panel.',
+                'The Timeline used to rebuild itself from scratch every time you entered it, even if nothing had changed since the last view. A new "tlDirty" flag: the rebuild (and its loader) now only runs if nodes/warps/dreams actually changed since the last render.',
+                'Added a current map zoom level (%) readout in the status bar, between the zoom buttons — previously there was no indicator of how zoomed in/out the map currently was.',
+            ],
+        }
+    },
+    {
+        version: '9.0.5', date: '2026-07-05',
+        notes: {
+            sl: [
+                'Esc zdaj zapre samo zadnje odprto okno, ne vseh naenkrat. Prej sta obstajala DVA ločena keydown listenerja, vsak je ob Esc zaprl svoj trdo kodiran seznam panelov (in tretji vir istega buga: iskalno polje na Timeline je imelo še svoj lasten Esc handler, ki je dogodek spustil naprej do obeh listenerjev). Zdaj vse skupaj upravlja en sam "panel stack": vsak odprt panel (master view, help, changelog, insights, iskanje lokacij, timeline) se potisne na vrh, Esc zapre samo vrh, naslednji Esc pa naslednjega spodaj.',
+                'Timeline je zdaj tudi del tega sklada — Esc med gledanjem Timeline-a zapre nazaj na karto (prej je bilo to mogoče samo s klikom na "✕ Karta").',
+            ],
+            en: [
+                'Escape now closes only the most recently opened window, not everything at once. There used to be TWO separate keydown listeners, each closing its own hard-coded list of panels on Escape (plus a third source of the same bug: the Timeline location search box had its own Escape handler that let the keypress bubble up to both listeners). Now a single "panel stack" manages all of it: every open panel (master view, help, changelog, insights, location search, timeline) pushes itself to the top, Escape closes only the top one, and the next Escape closes the one beneath it.',
+                'Timeline is now part of that same stack too — pressing Escape while viewing the Timeline closes it back to the map (previously only the "✕ Map" button could do that).',
+            ],
+        }
+    },
+    {
+        version: '9.0.4', date: '2026-07-05',
+        notes: {
+            sl: [
+                'Timeline: dropdown "Top" je prej tiho odrezal seznam lokacij na najboljših 30/50/80 po številu sanj, tudi ko je bilo lokacij več (npr. pri 81 se je nekaj vedno izgubilo, brez opozorila). Dodana je nova privzeta opcija "Vse" — brez omejitve, virtualizacija vrstic poskrbi, da to ne vpliva na hitrost izrisa.',
+                'Changelog premaknjen iz glave (kjer je klik na verzijo kar kričal zase) v diskreten link znotraj Help panela; besedilo je zdaj dvojezično (SL/EN) in sledi izbiri jezika kot vsa ostala vsebina.',
+            ],
+            en: [
+                'Timeline: the "Top" dropdown used to silently cut the location list to the best 30/50/80 by dream count, even when there were more locations (e.g. with 81, some were always lost with no warning). Added a new default option "All" — no limit, row virtualization keeps this from affecting render performance.',
+                'Changelog moved from the header (where clicking the version felt like it was shouting for attention) into a discreet link inside the Help panel; the text is now bilingual (SL/EN) and follows the language switch like everything else.',
+            ],
+        }
+    },
+    {
+        version: '9.0.3', date: '2026-07-05',
+        notes: {
+            sl: [
+                'Timeline sanje zdaj veže na perception bubbles prek istega besedilnega ujemanja (search terms ↔ vsebina sanje) kot povsod drugje v aplikaciji — prej je uporabljal uvoženo polje lokacije spanja, kar je dalo napačne skupine in "ni v atlasu" napake.',
+                'Timeline gradnja pospešena (eno SQL branje + regex ujemanje v pomnilniku namesto ločene poizvedbe na bubble) — odpravlja zamrznitev UI pri bazah s tisoči sanj.',
+                'Klik na piko na Timeline zdaj odpre točno tisto sanjo (razširjeno, poskrolano, osvetljeno) v master view-u, ne le splošno lokacijo.',
+                'Timeline: vertikalno drsenje in virtualizacija vrstic namesto stiskanja vseh lokacij v fiksno višino — berljivo tudi pri 100+ bubblih.',
+                'Timeline: navaden scroll zdaj drsi po vrsticah, Ctrl/Cmd+Scroll zoomira časovno os.',
+                'Timeline: Ctrl+F iskanje lokacij zdaj poskrola in osvetli ustrezno vrstico (namesto da je delovalo samo na karti).',
+                'Popravljen skrit konflikt: scroll na karti brez odprtega Timeline-a je vseeno tiho spreminjal kamero karte, tudi ko si gledal Timeline.',
+                'Dodan modal "Nalagam bazo…" ob nalaganju/menjavi baze.',
+                'Verzija in changelog zdaj iz enega vira (ta seznam).',
+            ],
+            en: [
+                'Timeline dreams are now linked to perception bubbles through the same text matching (search terms ↔ dream content) used everywhere else in the app — it previously used the imported sleep-location field, which produced wrong groupings and "not in atlas" errors.',
+                'Timeline building is now faster (a single SQL read plus in-memory regex matching instead of a separate query per bubble) — fixes UI freezes on databases with thousands of dreams.',
+                'Clicking a dot on the Timeline now opens that exact dream (expanded, scrolled to, highlighted) in the master view, not just the general location.',
+                'Timeline: vertical scrolling and row virtualization instead of squeezing all locations into a fixed height — readable even with 100+ bubbles.',
+                'Timeline: plain scroll now moves through rows, Ctrl/Cmd+Scroll zooms the time axis.',
+                'Timeline: Ctrl+F location search now scrolls to and highlights the matching row (instead of only working on the map).',
+                'Fixed a hidden conflict: scrolling on the map without the Timeline open would still silently move the map camera, even while looking at the Timeline.',
+                'Added a "Loading database…" modal when loading or switching databases.',
+                'Version and changelog now come from a single source (this list).',
+            ],
+        }
+    },
+];
+
+function applyVersionToUI() {
+    document.title = 'Orbis v' + APP_VERSION;
+    const el = document.getElementById('app-version-lbl');
+    if (el) el.textContent = 'v' + APP_VERSION;
+    const cl = document.getElementById('help-changelog-lbl');
+    if (cl) cl.textContent = 'v' + APP_VERSION + ' · ' + t('changelog.title');
+}
+
+function renderChangelogBody() {
+    const body = document.getElementById('changelog-body');
+    if (!body) return;
+    body.innerHTML = CHANGELOG.map(entry => {
+        const notes = entry.notes[currentLang] || entry.notes.sl || [];
+        return `
+        <div style="margin-bottom:16px;">
+            <div style="color:var(--accent); font-weight:600; font-family:'JetBrains Mono',monospace; margin-bottom:6px;">
+                v${escHtml(entry.version)} <span style="color:var(--muted); font-weight:400;">— ${escHtml(entry.date)}</span>
+            </div>
+            <ul style="margin:0; padding-left:18px; color:var(--muted);">
+                ${notes.map(n => `<li style="margin-bottom:4px;">${escHtml(n)}</li>`).join('')}
+            </ul>
+        </div>`;
+    }).join('');
+}
+
+function toggleChangelog() {
+    const cp = document.getElementById('changelog-panel');
+    const willOpen = cp.style.display !== 'flex';
+    cp.style.display = willOpen ? 'flex' : 'none';
+    if (willOpen) { renderChangelogBody(); pushPanel('changelog-panel'); } else popPanel('changelog-panel');
 }
 
 // ─────────────────────────────────────────────
@@ -913,14 +1041,61 @@ const LOD_LABELS = 0.35;
 
 // ─── TIMELINE ──────────────────────────────────
 let viewMode = 'map';
+let tlDirty = true; // PERF: timeline se znova zgradi samo, če se je od zadnjega izrisa kaj dejansko spremenilo (glej refreshData/refreshWarpsOnly in switchMode)
+
+// ─────────────────────────────────────────────
+//  PANEL STACK — en sam vir resnice za "kaj je trenutno odprto (in v katerem
+//  vrstnem redu)". Prej ni bilo enotnega mesta: vsak panel je imel svoj
+//  toggle/open/close, dva ločena keydown listenerja pa sta ob Escape vsak
+//  zaprla svoj trdo kodiran seznam panelov, ne glede na to, kaj je bilo
+//  dejansko odprto — zato je Escape "zaprl vse naenkrat".
+//  Pravilo: vsak open* potisne svoj id na vrh (pushPanel), vsak close* ga
+//  sname (popPanel) — NE GLEDE NA TO, kako je bil panel zaprt (Escape, X
+//  gumb, klik zunaj, programsko...), da stack nikoli ne "zaostane" za
+//  dejanskim stanjem. Escape samo pokliče closeTopPanel(), ki zapre vrh sklada.
+let panelStack = [];
+function pushPanel(id) {
+    panelStack = panelStack.filter(p => p !== id);
+    panelStack.push(id);
+}
+function popPanel(id) {
+    panelStack = panelStack.filter(p => p !== id);
+}
+// Dispatch na pravo "zapri" funkcijo za vsak panel — vsaka ima svojo logiko
+// (npr. master-view mora obnoviti minimap, timeline mora preklopiti nazaj na
+// karto), zato tu samo usmerjamo, ne podvajamo te logike.
+const PANEL_CLOSERS = {
+    'master-view': () => closePanel('master-view'),
+    'help-panel': () => closePanel('help-panel'),
+    'changelog-panel': () => closePanel('changelog-panel'),
+    'insights-panel': () => closeInsights(),
+    'node-search': () => closeNodeSearch(),
+    'timeline': () => switchMode('map'),
+};
+function closeTopPanel() {
+    if (!panelStack.length) return;
+    const id = panelStack[panelStack.length - 1];
+    (PANEL_CLOSERS[id] || (() => popPanel(id)))();
+}
 let tlData = [], tlLocs = [];
+let tlNodeByLocKey = new Map(); // BUGFIX: raw dream-location string -> matching atlas node,
+    // built using each node's real search terms (see findNodeForLocationText below) instead
+    // of the old name-only "stem" guess. Shared by buildTlData() (for the "Orbis only"
+    // filter/coloring) and the click handler (for click-to-open), so both agree on what's
+    // actually in the atlas.
 let tlZoom = 1.0, tlPanX = 0;
+let tlScrollY = 0; // vertikalni scroll čez vrstice (lokacije), ločen od tlPanX (horizontalni pan po času)
+let tlFlashKey = null, tlFlashUntil = 0; // začasna osvetlitev vrstice po iskanju (Ctrl+F)
+let tlLocIndexByKey = new Map(); // locKey -> row index, zgrajen v buildTlData() — O(1) namesto tlLocs.findIndex() v render/hover loopu
+let tlFocusScId = null; // SleepCycleID sanje, kliknjene na Timeline — master view jo ob odprtju razširi in poskrola do nje
 let tlIsPanning = false, tlPanStartX = 0, tlPanStartPanX = 0;
-let tlFilter = 'all', tlTop = 50;
+let tlFilter = 'all', tlTop = Infinity;
+let tlLocsShown = 0, tlLocsTotal = 0; // za counter ob Filter/Top kontrolah
 let tlHover = null;
 let tlDateMin = null, tlDateMax = null;
 let tlRafId = null;
 const TL_PAD = { l: 170, r: 30, t: 70, b: 60 }; // t povečan za tl-panel toolbar
+const TL_ROW_H = 18; // fiksna višina vrstice — namesto stiskanja vseh lokacij v plotH, zdaj drsimo (glej tlScrollY)
 
 // ─── UNDO / REDO ───────────────────────────────
 const undoStack = [];
@@ -959,6 +1134,7 @@ let searchIdx = 0;
 
 function openNodeSearch() {
     searchActive = true;
+    pushPanel('node-search');
     searchResults = [];
     searchIdx = 0;
     const overlay = document.getElementById('node-search-overlay');
@@ -969,6 +1145,7 @@ function openNodeSearch() {
 }
 function closeNodeSearch() {
     searchActive = false;
+    popPanel('node-search');
     searchResults = [];
     document.getElementById('node-search-overlay').style.display = 'none';
     document.getElementById('node-search-input').value = '';
@@ -996,6 +1173,7 @@ function updateNodeSearchCount() {
 function focusSearchResult() {
     const n = searchResults[searchIdx];
     if (!n) return;
+    if (viewMode === 'timeline') { focusTlNode(n); return; }
     // Centrira node v kameri
     camX = canvas.width  / 2 - n.x * camScale;
     camY = canvas.height / 2 - n.y * camScale;
@@ -1003,9 +1181,29 @@ function focusSearchResult() {
     flashNodeId = n.id;
     setTimeout(() => { flashNodeId = null; }, 800);
 }
+
+// Poskrola Timeline do vrstice tega bubble-a in jo za trenutek osvetli — Timeline
+// ustreznik focusSearchResult() zgoraj, samo prevedeno na scrollY namesto camX/camY.
+// Če bubble (še) nima nobene ujemajoče sanje na Timeline (torej sploh nima vrstice),
+// to jasno povemo namesto da tiho ne naredimo nič.
+function focusTlNode(n) {
+    const key = 'node:' + n.id;
+    const i = tlLocIndexByKey.get(key);
+    if (i === undefined) {
+        showToast(t('tl.search_not_visible', n.name), true);
+        return;
+    }
+    const { plotH, rowH, maxScrollY } = tlLayout();
+    const target = i * rowH + rowH / 2 - plotH / 2;
+    tlScrollY = Math.max(0, Math.min(maxScrollY, target));
+    tlFlashKey = key;
+    tlFlashUntil = performance.now() + 900;
+}
 function confirmNodeSearch() {
     if (searchResults.length) {
-        openMasterView(searchResults[searchIdx]);
+        const n = searchResults[searchIdx];
+        if (viewMode === 'timeline') switchMode('map'); // enako kot klik na Timeline piko — odpre karto + master view
+        openMasterView(n);
     }
     closeNodeSearch();
 }
@@ -1023,9 +1221,8 @@ let nodeMap = new Map();
 let parentSet = new Set();
 // OPT #13 — predizračunani group bounds (posodobijo se po refreshData)
 let groupBoundsCache = new Map();
-// SKLOP 2 — frekvenca sanj na lokacijo: Map<nodeName_stem, count>
-let freqMap = new Map();
-let freqMax = 1; // za normalizacijo barve
+// SKLOP 2 — frekvenca sanj na lokacijo (glej rebuildNodeFreqCache spodaj)
+let freqMax = 1; // za normalizacijo barve (glej rebuildNodeFreqCache)
 
 // Paginacija dream lista
 const DREAM_PAGE_SIZE = 50;
@@ -1041,6 +1238,9 @@ function getSearchTerms(node) {
         return node.searchTerms.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
     return [node.name.toLowerCase()];
 }
+
+// (glej buildTlData spodaj za razlago, zakaj Timeline sanje veže na bubble prek
+// buildDreamSearchSQL/sc.Contents in ne prek uvoženega polja Dreams.Location)
 
 function buildDreamSearchSQL(node) {
     const terms = getSearchTerms(node);
@@ -1079,18 +1279,23 @@ function suggestSearchTerms(node) {
     try {
         const name = node.name.toLowerCase();
         const root = name.length > 4 ? name.slice(0, Math.max(4, Math.ceil(name.length * 0.65))) : name;
-        const res = db.exec(
-            'SELECT LOWER(sc.Contents) FROM SleepCycle sc WHERE LOWER(sc.Contents) LIKE ? LIMIT 300',
-            ['%' + root + '%']
-        );
+        // TECH DEBT FIX: SQLite's built-in LOWER() and LIKE case-folding only cover ASCII
+        // in the default (non-ICU) build sql.js uses, so e.g. LOWER('Čas') stays 'Čas'
+        // instead of becoming 'čas' — a search root like "čas" would never match dream
+        // text that happened to start a sentence with "Čas". We now fetch the raw text
+        // and match in JS, where .toLowerCase() correctly handles šumniki and other
+        // accented characters.
+        const res = db.exec('SELECT sc.Contents FROM SleepCycle sc');
         if (!res.length) return [];
         const wordFreq = new Map();
         res[0].values.forEach(([text]) => {
-            const words = text.split(/[\s.,;!?()"«»\-]+/);
+            if (!text) return;
+            const lower = text.toLowerCase();
+            if (!lower.includes(root)) return;
+            const words = lower.split(/[\s.,;!?()"«»\-]+/);
             words.forEach(w => {
-                const wl = w.toLowerCase();
-                if (wl.includes(root) && wl.length >= root.length && wl.length <= root.length + 8)
-                    wordFreq.set(wl, (wordFreq.get(wl) || 0) + 1);
+                if (w.includes(root) && w.length >= root.length && w.length <= root.length + 8)
+                    wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
             });
         });
         return [...wordFreq.entries()].sort((a,b) => b[1]-a[1]).slice(0,12).map(([word,count]) => ({word,count}));
@@ -1147,11 +1352,50 @@ const ctx = canvas.getContext('2d');
 // ─────────────────────────────────────────────
 //  SQL INIT
 // ─────────────────────────────────────────────
-async function initSql() {
-    SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/${f}` });
-    db = new SQL.Database();
-    initSchema(); refreshData(); setLang(currentLang);
+// Modal "Nalagam…" — prikaže se ob nalaganju/menjavi baze, ker sql.js (WASM) in
+// parsanje datoteke traja opazno dolgo (kratek, a viden zamik), prej pa med tem ni bilo
+// nobene povratne informacije, da se sploh kaj dogaja.
+function showDbLoading(msgKey) {
+    const el = document.getElementById('db-loading-overlay');
+    if (!el) return;
+    const txt = document.getElementById('db-loading-text');
+    if (txt && msgKey) txt.textContent = t(msgKey);
+    el.classList.add('visible');
 }
+function hideDbLoading() {
+    const el = document.getElementById('db-loading-overlay');
+    if (el) el.classList.remove('visible');
+}
+
+// BUGFIX: db-status je bil prej nastavljen samo enkrat, ob nalaganju/napaki, z
+// direktnim textContent = t(...) + ime datoteke. Če si nato preklopil jezik,
+// je besedilo ostalo v jeziku, v katerem je bilo izrisano prvič (isti razlog
+// kot pri insights/changelog pred popravkom). setDbStatus si zapomni zadnje
+// stanje, renderDbStatus pa ga zna kadarkoli znova izrisati v currentLang.
+let lastDbStatus = null; // { type: 'loaded'|'error', extra: string }
+function setDbStatus(type, extra) {
+    lastDbStatus = { type, extra };
+    renderDbStatus();
+}
+function renderDbStatus() {
+    const el = document.getElementById('db-status');
+    if (!el || !lastDbStatus) return;
+    el.textContent = t(lastDbStatus.type === 'loaded' ? 'db.loaded' : 'db.error') + lastDbStatus.extra;
+    el.style.color = lastDbStatus.type === 'loaded' ? 'var(--accent)' : 'var(--warp)';
+}
+
+async function initSql() {
+    showDbLoading('db.loading');
+    try {
+        SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/${f}` });
+        db = new SQL.Database();
+        initSchema(); refreshData(); setLang(currentLang);
+        resetCamera(); // BUGFIX: guarantee Home is centered on load, regardless of any prior camera state
+    } finally {
+        hideDbLoading();
+    }
+}
+applyVersionToUI();
 initSql();
 
 function initSchema() {
@@ -1185,17 +1429,24 @@ function initSchema() {
 }
 
 document.getElementById('db-upload').onchange = function(e) {
+    if (!e.target.files.length) return;
+    showDbLoading('db.loading');
     const reader = new FileReader();
     reader.onload = function() {
         try {
             db = new SQL.Database(new Uint8Array(reader.result));
             initSchema(); refreshData();
-            document.getElementById('db-status').textContent = t('db.loaded') + e.target.files[0].name;
-            document.getElementById('db-status').style.color = 'var(--accent)';
+            resetCamera(); // BUGFIX: center on the new database's Home instead of keeping the old camera position
+            setDbStatus('loaded', e.target.files[0].name);
         } catch(err) {
-            document.getElementById('db-status').textContent = t('db.error') + err.message;
-            document.getElementById('db-status').style.color = 'var(--warp)';
+            setDbStatus('error', err.message);
+        } finally {
+            hideDbLoading();
         }
+    };
+    reader.onerror = function() {
+        hideDbLoading();
+        setDbStatus('error', reader.error?.message || '?');
     };
     reader.readAsArrayBuffer(e.target.files[0]);
 };
@@ -1240,57 +1491,48 @@ function refreshData() {
     parentSet = new Set(nodes.filter(n => n.parentId).map(n => n.parentId));
     // OPT #13: obnovi groupBoundsCache
     rebuildGroupBoundsCache();
-    // SKLOP 2: obnovi frekvenčno mapo
-    buildFreqMap();
-    rebuildNodeFreqCache(); // OPT — glej definicijo funkcije nižje; nadomesti izračun frekvence/barve v render loopu
+    // SKLOP 2: obnovi frekvenčno mapo (glej rebuildNodeFreqCache — zdaj uporablja
+    // countDreamsForNode() namesto stare, pokvarjene stem-matching logike)
+    rebuildNodeFreqCache();
     if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
+    tlDirty = true; // polni refresh lahko spremeni karkoli, na čemer temelji Timeline izris
 }
 
-// ─────────────────────────────────────────────
-//  FREQ MAP — število sanj na lokacijo
-// ─────────────────────────────────────────────
-function buildFreqMap() {
-    freqMap = new Map();
-    freqMax = 1;
+// PERF: warp create/delete/flip/toggle-oneway ne vplivajo na nodee, search terms
+// ali sanje — torej ne rabijo rebuildNodeFreqCache() (per-node SQL LIKE-scan čez
+// celoten SleepCycle, glej rebuildNodeFreqCache) niti rebuildGroupBoundsCache().
+// Prej je vsaka warp operacija klicala polni refreshData(), kar je za bazo z
+// več deset lokacijami dalo opazno zakasnitev za povsem nepovezano stvarjo.
+// Ta lahka varianta samo znova prebere Atlas_Warps in posodobi odvisne UI dele.
+function refreshWarpsOnly() {
     if (!db) return;
     try {
-        // En query: COUNT sanj po LocationId, join z Location imenom
-        const res = db.exec(`
-            SELECT l.Location, COUNT(DISTINCT sc.SleepCycleID) as cnt
-            FROM Location l
-            JOIN Dreams d ON d.Location = l.LocationId
-            JOIN SleepCycle sc ON sc.DreamID = d.DreamID
-            GROUP BY l.LocationId
-        `);
-        if (!res.length) return;
-        res[0].values.forEach(([locName, cnt]) => {
-            if (locName) freqMap.set(locName.toLowerCase(), cnt);
-        });
-        freqMax = Math.max(1, ...freqMap.values());
-    } catch(e) {} // Location tabela morda ne obstaja (prazna baza)
+        const wRes = db.exec("SELECT Id, FromNodeId, ToNodeId, IsOneWay FROM Atlas_Warps");
+        warps = wRes.length ? wRes[0].values.map(v => ({
+            id: v[0], from: v[1], to: v[2], oneWay: !!v[3]
+        })) : [];
+    } catch(e) { warps = []; }
+    populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
+    populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
+    document.getElementById('stat-warps').textContent = warps.length;
+    tlDirty = true; // warpi vplivajo na Timeline izris (povezave med lokacijami)
 }
 
 // ─────────────────────────────────────────────
 //  FREKVENCA / BARVA — CACHE (OPT)
-//  BUGFIX/PERF: getNodeFreq() in freqColor() sta se prej preračunala VSAK FRAME za
-//  vsak node in vsak warp (linearno iskanje po celotnem freqMap). Pri večjih bazah
-//  je to opazno upočasnilo izris (tudi warpov). Zdaj se izračuna enkrat ob
-//  refreshData()/buildFreqMap() in shrani v nodeFreqCache.
+//  BUGFIX: the previous version matched each node against dream *Location* text
+//  using a crude last-letter-stripping "stem" heuristic (buildFreqMap() +
+//  computeNodeFreqRaw()), completely independent from the node's actual
+//  configured Search Terms and the word-boundary-aware matching that
+//  countDreamsForNode() already uses correctly everywhere else (dream list,
+//  stats box). That heuristic essentially never matched real location names,
+//  which is why almost every bubble showed a frequency of 0. Frequency is now
+//  computed with the exact same accurate query as the rest of the app.
+//
+//  PERF: still computed once per refreshData() and cached, not per frame/warp
+//  (see rebuildNodeFreqCache()).
 // ─────────────────────────────────────────────
 let nodeFreqCache = new Map(); // nodeId -> { cnt, color: {r,g,b,t,cnt} | null }
-
-function computeNodeFreqRaw(node) {
-    const name = node.name.toLowerCase();
-    const stem = (name.length > 3 && 'aeiou'.includes(name.slice(-1)))
-        ? name.slice(0, -1) : name;
-    let best = 0;
-    freqMap.forEach((cnt, key) => {
-        if (key.startsWith(stem) || stem.startsWith(key.slice(0, Math.max(3, key.length - 1)))) {
-            if (cnt > best) best = cnt;
-        }
-    });
-    return best;
-}
 
 function computeFreqColorRaw(cnt) {
     if (!cnt) return null;
@@ -1303,11 +1545,46 @@ function computeFreqColorRaw(cnt) {
 }
 
 function rebuildNodeFreqCache() {
+    // BUGFIX: this used to run countDreamsForNode() — a real SQL query per node —
+    // synchronously for the entire node list in one go. On a database with many
+    // locations this can block the main thread long enough that the browser never
+    // gets a chance to paint a frame in between, so the map appears to "not load"
+    // right after opening a database. It would only catch up once some unrelated
+    // event (e.g. switching language, which does its own DOM work) happened to
+    // occur right as the blocking computation finished — that coincidence is what
+    // made it look like the language switch was somehow "fixing" it.
+    //
+    // Fix: process nodes in small batches, yielding back to the browser between
+    // batches (via requestIdleCallback, or setTimeout as a fallback) so the map
+    // renders immediately with neutral bubble colors, and the frequency-based
+    // colors stream in progressively a moment later instead of blocking the very
+    // first paint.
     nodeFreqCache = new Map();
-    nodes.forEach(n => {
-        const cnt = computeNodeFreqRaw(n);
-        nodeFreqCache.set(n.id, { cnt, color: computeFreqColorRaw(cnt) });
-    });
+    const queue = nodes.slice();
+    const BATCH_SIZE = 20;
+    const scheduleNext = window.requestIdleCallback
+        ? (cb) => requestIdleCallback(cb, { timeout: 200 })
+        : (cb) => setTimeout(cb, 0);
+
+    function processBatch() {
+        const batch = queue.splice(0, BATCH_SIZE);
+        batch.forEach(n => {
+            nodeFreqCache.set(n.id, { cnt: countDreamsForNode(n), color: null });
+        });
+        if (queue.length) {
+            scheduleNext(processBatch);
+        } else {
+            finalizeFreqColors();
+        }
+    }
+
+    function finalizeFreqColors() {
+        freqMax = Math.max(1, ...[...nodeFreqCache.values()].map(v => v.cnt));
+        nodeFreqCache.forEach(entry => { entry.color = computeFreqColorRaw(entry.cnt); });
+        if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
+    }
+
+    if (queue.length) processBatch();
 }
 
 function getNodeFreq(node) {
@@ -1322,6 +1599,7 @@ function freqColor(node) {
 //  POZABLJANJE
 // ─────────────────────────────────────────────
 let forgettingEnabled = false;
+let lastForgetResult = null; // cache za renderForgetStatus() — glej opombo tam
 
 function toggleForgetting(enabled) {
     forgettingEnabled = enabled;
@@ -1393,17 +1671,28 @@ function applyForgetting() {
     markUnsaved();
     rebuildGroupBoundsCache();
 
-    // Pokaži status
+    lastForgetResult = { refDate, daysSinceLastEntry, updated, skipped, statusLines };
+    renderForgetStatus();
+}
+
+// PERF: ločeno od applyForgetting(), da lahko jezikovni preklop osveži samo
+// prikaz (datumski format sledi currentLang), brez ponovnega recompute +
+// DB writes za vsak node — to bi bilo enako nepotrebno kot warp/refreshData
+// bug, ki smo ga pravkar popravili.
+function renderForgetStatus() {
+    const el = document.getElementById('forget-status');
+    if (!el || !lastForgetResult) return;
+    const { refDate, daysSinceLastEntry, updated, skipped, statusLines } = lastForgetResult;
     const refLabel = daysSinceLastEntry < 30
         ? t('forget.ref_today')
-        : `${t('forget.ref_last')}: ${refDate.toLocaleDateString('sl-SI')}`;
+        : `${t('forget.ref_last')}: ${refDate.toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'sl-SI')}`;
     let statusHtml = `<span style="color:var(--accent)">${refLabel}</span><br>`;
     statusHtml += `${t('forget.updated')}: ${updated} · ${t('forget.skipped')}: ${skipped}`;
     if (statusLines.length) {
         statusHtml += `<br><span style="color:var(--warp)">${statusLines.slice(0,5).join('<br>')}</span>`;
         if (statusLines.length > 5) statusHtml += `<br>… +${statusLines.length - 5}`;
     }
-    document.getElementById('forget-status').innerHTML = statusHtml;
+    el.innerHTML = statusHtml;
 }
 
 
@@ -1418,6 +1707,7 @@ function toggleInsights() {
 
 function closeInsights() {
     insightsOpen = false;
+    popPanel('insights-panel');
     document.getElementById('insights-panel').classList.remove('open');
     const btn = document.getElementById('sb-insights-btn');
     if (btn) { btn.style.color = ''; btn.style.borderColor = ''; }
@@ -1425,6 +1715,7 @@ function closeInsights() {
 
 function openInsights() {
     insightsOpen = true;
+    pushPanel('insights-panel');
     // Zapri master view da se ne prekrivata
     closePanel('master-view');
     document.getElementById('insights-panel').classList.add('open');
@@ -1629,19 +1920,23 @@ function filterWarpSelect(id, q) { populateWarpSelect(id, q); }
 // ─────────────────────────────────────────────
 //  CANVAS RESIZE
 // ─────────────────────────────────────────────
+let canvasSized = false; // BUGFIX: a <canvas> defaults to 300×150 before any explicit
+    // sizing. The very first resizeCanvas() call used to be treated the same as a real
+    // resize, so it "compensated" camX/camY against that meaningless 300×150 default —
+    // shoving the camera away from (0,0) and making Home appear off-center on load.
+    // Now the compensation only runs from the second call onward (genuine resizes).
 function resizeCanvas() {
     const vp = document.getElementById('viewport');
     const newW = vp.clientWidth, newH = vp.clientHeight;
-    // BUGFIX: prej se je ob spremembi velikosti okna/sidebar-ja pogled vidno
-    // "skočil" vstran, ker centerHomeNode() DOM node vedno prestavi na novo
-    // središče canvasa, camX/camY pa se nista ustrezno prilagodila. Zdaj
-    // kompenziramo ta premik, da kamera ostane vizualno stabilna.
-    if (canvas.width && canvas.height) {
+    // Kompenzacija ob spremembi velikosti okna/sidebar-ja, da kamera ostane vizualno
+    // stabilna (centerHomeNode() spodaj vedno prestavi DOM node na novo središče).
+    if (canvasSized) {
         camX += camScale * (canvas.width - newW) / 2;
         camY += camScale * (canvas.height - newH) / 2;
     }
     canvas.width = newW;
     canvas.height = newH;
+    canvasSized = true;
     centerHomeNode();
 }
 resizeCanvas();
@@ -1840,6 +2135,22 @@ function drawWarps() {
     });
 }
 
+// NOVA FUNKCIJA — glej mousedown/warpLinkFrom: dokler je Ctrl+klik warp-linking aktiven,
+// izriše živo, pikčasto črto med izbranim mehurčkom in trenutno pozicijo miške, da je
+// jasno vidno, da aplikacija čaka na drugi klik.
+function drawWarpLinkPreview() {
+    if (!warpLinkFrom || !warpLinkMouse) return;
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = 'rgba(255,77,77,0.7)';
+    ctx.lineWidth = 1.5 / camScale;
+    ctx.beginPath();
+    ctx.moveTo(warpLinkFrom.x, warpLinkFrom.y);
+    ctx.lineTo(warpLinkMouse.x, warpLinkMouse.y);
+    ctx.stroke();
+    ctx.restore();
+}
+
 function drawNode(n) {
     // LOD — child nodi: fade med LOD_DETAIL in LOD_DETAIL+0.15
     const childAlpha = n.parentId
@@ -1992,6 +2303,7 @@ function animate(ts) {
     if (layers.fog)    drawFog(W / camScale, H / camScale);
     if (layers.groups) drawGroups();
     if (layers.warps)  drawWarps();
+    drawWarpLinkPreview();
     nodes.forEach(drawNode);
 
     ctx.restore();
@@ -2013,6 +2325,7 @@ function switchMode(mode) {
     const layCtrl= document.getElementById('layer-ctrl');
 
     if (mode === 'timeline') {
+        pushPanel('timeline');
         panel.style.display = 'flex';
         layCtrl.style.display = 'none';
         if (tlBtn) { tlBtn.style.color = 'var(--accent)'; tlBtn.style.borderColor = 'var(--accent)'; }
@@ -2020,10 +2333,19 @@ function switchMode(mode) {
         if (MM.visible) { MM._wasVisible = true; MM.visible = false; MM.x = 0; }
         // Zapri master view
         closePanel('master-view');
-        buildTlData();
-        if (tlRafId) cancelAnimationFrame(tlRafId);
-        tlLoop();
+        // PERF: prej se je Timeline ob VSAKEM vstopu v ta mode znova zgradil od
+        // začetka (buildTlData + loader), tudi če se od zadnjega ogleda ni
+        // spremenilo popolnoma nič. tlDirty se postavi na true samo ob dejanski
+        // spremembi (refreshData/refreshWarpsOnly) — če ni dirty, samo
+        // nadaljujemo render loop na že obstoječih podatkih, brez loaderja.
+        if (tlDirty || !tlData.length) {
+            rebuildTimelineAsync(true);
+        } else {
+            if (tlRafId) cancelAnimationFrame(tlRafId);
+            tlLoop();
+        }
     } else {
+        popPanel('timeline');
         panel.style.display = 'none';
         layCtrl.style.display = '';
         if (tlBtn) { tlBtn.style.color = ''; tlBtn.style.borderColor = ''; }
@@ -2031,6 +2353,20 @@ function switchMode(mode) {
         document.getElementById('tl-tooltip').style.display = 'none';
         if (tlRafId) { cancelAnimationFrame(tlRafId); tlRafId = null; }
     }
+}
+
+// Enotna geometrija vrstic/scrolla — prej so bili plotH/rowH preračunani ločeno (in
+// nekonsistentno!) v tlRender() in v hover/hit-test kodi. Zdaj en vir resnice za oboje,
+// plus tlScrollY, ki ga potrebujeta obe mesti.
+function tlLayout() {
+    const { l: PL, r: PR, t: PT, b: PB } = TL_PAD;
+    const plotW = canvas.width - PL - PR;
+    const plotH = canvas.height - PT - PB;
+    const nLocs = tlLocs.length;
+    const rowH = TL_ROW_H;
+    const contentH = nLocs * rowH;
+    const maxScrollY = Math.max(0, contentH - plotH);
+    return { PL, PR, PT, PB, plotW, plotH, rowH, nLocs, contentH, maxScrollY };
 }
 
 function tlLoop() {
@@ -2056,76 +2392,136 @@ function parseDate(str) {
     return null;
 }
 
+// PERF FIX: with 8000+ SleepCycles, running one SQL query per bubble (as above) meant
+// nodes.length full-table LIKE scans over every dream, each with up to ~9 LIKE
+// conditions per search term — that's what froze the UI for several seconds on
+// "T". Now we read every dream ONCE, then match all bubbles against it in memory
+// with one pre-compiled regex per bubble (same word-boundary semantics as
+// buildDreamSearchSQL), which is orders of magnitude fewer operations overall.
 function buildTlData() {
     tlData = []; tlLocs = [];
     if (!db) return;
     try {
-        // Brez l.Act filtra — pokažemo vse lokacije
         const res = db.exec(`
-            SELECT d.Date_, l.Location, sc.Contents
-            FROM Dreams d
-            JOIN Location l ON d.Location = l.LocationId
-            JOIN SleepCycle sc ON sc.DreamID = d.DreamID
-            WHERE d.Date_ IS NOT NULL AND l.Location IS NOT NULL
-            ORDER BY d.Date_ ASC`);
+            SELECT d.Date_, sc.SleepCycleID, sc.Contents
+            FROM SleepCycle sc
+            JOIN Dreams d ON sc.DreamID = d.DreamID
+            WHERE d.Date_ IS NOT NULL`);
         if (!res.length || !res[0].values.length) {
-            console.warn('buildTlData: query vrnil 0 rezultatov');
-            // Poskusi brez JOIN — preveri ali tabele sploh obstajajo
-            try {
-                const test = db.exec("SELECT COUNT(*) FROM Dreams");
-                console.warn('Dreams count:', test[0]?.values[0][0]);
-            } catch(e2) { console.warn('Dreams tabela ne obstaja:', e2.message); }
+            console.warn('buildTlData: ni sanj z veljavnim datumom (preveri SleepCycle/Dreams)');
+            tlLocsShown = 0; tlLocsTotal = 0; updateTlCountLbl();
+            return;
+        }
+        const dreamRows = res[0].values
+            .map(([date, scId, content]) => ({ ts: parseDate(date), scId, content: content || '' }))
+            .filter(r => r.ts);
+
+        // Ročno pripete sanje (Atlas_NodeDreams) veljajo ne glede na besedilno ujemanje —
+        // enako kot v buildDreamSearchSQL().
+        const pinned = new Map(); // nodeId -> Set<scId>
+        try {
+            const pRes = db.exec(`SELECT NodeId, SleepCycleId FROM Atlas_NodeDreams`);
+            if (pRes.length) pRes[0].values.forEach(([nodeId, scId]) => {
+                if (!pinned.has(nodeId)) pinned.set(nodeId, new Set());
+                pinned.get(nodeId).add(scId);
+            });
+        } catch(e) {}
+
+        // En regex na bubble namesto 9 SQL LIKE-jev na iskalni izraz — isti pogoj
+        // (izraz na začetku vsebine ALI takoj za ločilom), samo enkrat prekompiliran.
+        const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const nodeMatchers = nodes.map(n => {
+            const terms = getSearchTerms(n).filter(Boolean);
+            if (!terms.length) return { node: n, regex: null };
+            const alt = terms.map(escapeRe).join('|');
+            return { node: n, regex: new RegExp('(^|[ .,;!?\\-(])(?:' + alt + ')', 'i') };
+        });
+
+        tlNodeByLocKey = new Map();
+        const raw = [];
+        const locCount = new Map();
+        const matchedScIds = new Set();
+
+        dreamRows.forEach(({ ts, scId, content }) => {
+            nodeMatchers.forEach(({ node, regex }) => {
+                const isPinned = pinned.get(node.id)?.has(scId);
+                if (!isPinned && !(regex && regex.test(content))) return;
+                const key = 'node:' + node.id;
+                raw.push({ ts, locKey: key, locName: node.name, content, scId });
+                locCount.set(key, (locCount.get(key) || 0) + 1);
+                matchedScIds.add(scId);
+                tlNodeByLocKey.set(key, node);
+            });
+        });
+
+        // Sanje, ki (še) ne ustrezajo nobenemu obstoječemu bubble-u, združimo v eno
+        // "neuvrščeno" vrstico — samo za filter "Vse", ker jih "Samo Orbis" po definiciji izloči.
+        if (tlFilter !== 'atlas') {
+            const key = 'unmapped';
+            dreamRows.forEach(({ ts, scId, content }) => {
+                if (matchedScIds.has(scId)) return;
+                raw.push({ ts, locKey: key, locName: t('tl.unmapped'), content, scId });
+                locCount.set(key, (locCount.get(key) || 0) + 1);
+            });
+        }
+
+        if (!locCount.size) {
+            console.warn('buildTlData: ni ujemajočih sanj (preveri, ali obstajajo bubble-i s Search Terms)');
+            tlLocsShown = 0; tlLocsTotal = 0; updateTlCountLbl();
             return;
         }
 
-        // Atlas lookup — tudi stem variante (npr "trg" ujame "trgovina")
-        const atlasMap = new Map();
-        nodes.forEach(n => {
-            const key = n.name.toLowerCase();
-            atlasMap.set(key, n);
-            // Stem: odstrani zadnji samoglasnik
-            if (key.length > 3 && 'aeiouáéíóú'.includes(key.slice(-1)))
-                atlasMap.set(key.slice(0,-1), n);
-        });
-
-        const locCount = new Map();
-        const raw = [];
-        res[0].values.forEach(([date, loc, content]) => {
-            const ts = parseDate(date);
-            if (!ts || !loc) return;
-            const key = loc.toLowerCase();
-            locCount.set(key, (locCount.get(key) || 0) + 1);
-            raw.push({ ts, locKey: key, locName: loc, content: content || '' });
-        });
-
         let locs = [...locCount.entries()];
-        if (tlFilter === 'atlas') locs = locs.filter(([k]) => atlasMap.has(k));
+        if (tlFilter === 'atlas') locs = locs.filter(([k]) => tlNodeByLocKey.has(k));
         locs.sort((a, b) => b[1] - a[1]);
+        tlLocsTotal = locs.length; // koliko jih ustreza filtru, PRED Top-N omejitvijo
         locs = locs.slice(0, tlTop);
+        tlLocsShown = locs.length; // koliko jih dejansko prikazujemo (po Top-N)
+        updateTlCountLbl();
         const topKeys = new Set(locs.map(([k]) => k));
 
         tlData = raw.filter(e => topKeys.has(e.locKey));
         tlLocs = locs.map(([key, count]) => {
-            const n = atlasMap.get(key);
+            const n = tlNodeByLocKey.get(key);
             const col = n ? (n.type==='Archetype' ? '#f7d794' : n.type==='DreamSign' ? '#a29bfe' : '#66fcf1') : '#555';
-            const displayName = raw.find(e => e.locKey === key)?.locName || key;
+            const displayName = n ? n.name : t('tl.unmapped');
             return { key, displayName, count, isAtlas: !!n, col };
         });
+        tlLocIndexByKey = new Map(tlLocs.map((l, i) => [l.key, i]));
 
         if (tlData.length) {
             tlDateMin = Math.min(...tlData.map(e => e.ts));
             tlDateMax = Math.max(...tlData.map(e => e.ts));
         }
         tlPanX = 0;
+        tlScrollY = 0;
     } catch(e) { console.warn('buildTlData:', e); }
+}
+
+// Timeline gradnja lahko na velikih bazah (tisoči SleepCycle-ov) traja opazen trenutek.
+// setTimeout(...,0) pusti brskalniku, da najprej nariše "Gradim timeline..." overlay,
+// šele nato zažene (težji) izračun — brez tega bi se overlay in freeze zgodila hkrati
+// in uporabnik ne bi videl nič, dokler se vse skupaj ne konča.
+function rebuildTimelineAsync(afterMode) {
+    showDbLoading('tl.building');
+    setTimeout(() => {
+        try {
+            buildTlData();
+            tlDirty = false;
+        } finally {
+            hideDbLoading();
+        }
+        if (afterMode && viewMode === 'timeline') {
+            if (tlRafId) cancelAnimationFrame(tlRafId);
+            tlLoop();
+        }
+    }, 20);
 }
 
 function tlRender() {
     // Isti canvas kot atlas — dimenzije so vedno pravilne
     const W = canvas.width, H = canvas.height;
-    const { l: PL, r: PR, t: PT, b: PB } = TL_PAD;
-    const plotW = W - PL - PR;
-    const plotH = H - PT - PB;
+    const { PL, PR, PT, PB, plotW, plotH, rowH, nLocs, contentH, maxScrollY } = tlLayout();
 
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#050506';
@@ -2139,19 +2535,23 @@ function tlRender() {
         return;
     }
 
-    const nLocs = tlLocs.length;
-    const rowH = Math.max(6, Math.min(24, plotH / Math.max(1, nLocs)));
     const tRange = tlDateMax - tlDateMin || 1;
     const toX = ts => PL + tlPanX + ((ts - tlDateMin) / tRange) * plotW * tlZoom;
-    const toY = i  => PT + i * rowH + rowH / 2;
+    const toY = i  => PT + i * rowH + rowH / 2 - tlScrollY;
+
+    // Virtualizacija — izriši samo vrstice, ki dejansko sekajo viden plotH.
+    // Brez tega bi pri stotinah bubble-ov vsak frame risal tudi na stotine
+    // nevidnih vrstic (rAF loop teče neprekinjeno, dokler je Timeline odprt).
+    const firstRow = Math.max(0, Math.floor(tlScrollY / rowH));
+    const lastRow  = Math.min(nLocs - 1, Math.ceil((tlScrollY + plotH) / rowH));
 
     // Zebra ozadje
-    tlLocs.forEach((_, i) => {
+    for (let i = firstRow; i <= lastRow; i++) {
         if (i % 2 === 0) {
             ctx.fillStyle = 'rgba(255,255,255,0.02)';
-            ctx.fillRect(PL, PT + i * rowH, plotW, rowH);
+            ctx.fillRect(PL, PT + i * rowH - tlScrollY, plotW, rowH);
         }
-    });
+    }
 
     // Letne vertikalne črte
     const yMin = new Date(tlDateMin).getFullYear();
@@ -2171,41 +2571,65 @@ function tlRender() {
     ctx.save();
     ctx.beginPath(); ctx.rect(PL, PT, plotW, plotH); ctx.clip();
 
-    const DOT = Math.max(2, Math.min(4, rowH * 0.35));
+    const DOT = 3;
     tlData.forEach(e => {
+        const i = tlLocIndexByKey.get(e.locKey);
+        if (i === undefined || i < firstRow || i > lastRow) return; // izven vidnega okna — preskoči
         const x = toX(e.ts);
         if (x < PL - DOT * 3 || x > W - PR + DOT * 3) return;
-        const i = tlLocs.findIndex(l => l.key === e.locKey);
-        if (i < 0) return;
         const y = toY(i);
         const isHov = tlHover?.entry === e;
         ctx.beginPath();
         ctx.arc(x, y, isHov ? DOT * 2.5 : DOT, 0, Math.PI * 2);
-        ctx.fillStyle = isHov ? '#fff' : (tlLocs[i].col + (rowH < 10 ? '77' : 'aa'));
+        ctx.fillStyle = isHov ? '#fff' : (tlLocs[i].col + 'aa');
         if (isHov) { ctx.shadowColor = '#fff'; ctx.shadowBlur = 12; }
         ctx.fill();
         ctx.shadowBlur = 0;
     });
     ctx.restore();
 
-    // Labele lokacij
-    tlLocs.forEach((loc, i) => {
+    // Labele lokacij — samo vidne vrstice
+    for (let i = firstRow; i <= lastRow; i++) {
+        const loc = tlLocs[i];
         const y = toY(i);
-        ctx.font = `${loc.isAtlas ? '500' : '400'} ${Math.max(8, Math.min(11, rowH * 0.65))}px Inter, sans-serif`;
+        ctx.font = `${loc.isAtlas ? '500' : '400'} 10px Inter, sans-serif`;
         ctx.textAlign = 'right';
         ctx.fillStyle = loc.isAtlas ? loc.col : 'rgba(255,255,255,0.3)';
         const lbl = loc.displayName.length > 22 ? loc.displayName.slice(0, 21) + '…' : loc.displayName;
-        ctx.fillText(lbl, PL - 8, y + 4);
-        if (rowH > 12) {
-            ctx.font = '7px JetBrains Mono, monospace';
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.fillText(loc.count, PL - 8, y + 13);
-        }
-    });
+        ctx.fillText(lbl, PL - 8, y + 3);
+        ctx.font = '7px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.fillText(loc.count, PL - 8, y + 12);
+    }
 
     // Spodnja os
     ctx.beginPath(); ctx.moveTo(PL, H - PB); ctx.lineTo(W - PR, H - PB);
     ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Osvetlitev vrstice po iskanju (Ctrl+F) — poteče sama, glej focusTlNode()
+    if (tlFlashKey) {
+        const remain = tlFlashUntil - performance.now();
+        if (remain > 0) {
+            const fi = tlLocIndexByKey.get(tlFlashKey);
+            if (fi !== undefined && fi >= firstRow && fi <= lastRow) {
+                const alpha = Math.max(0, Math.min(1, remain / 900));
+                ctx.strokeStyle = `rgba(102,252,241,${alpha})`;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(PL + 1, PT + fi * rowH - tlScrollY + 1, plotW - 2, rowH - 2);
+            }
+        } else { tlFlashKey = null; }
+    }
+
+    // Scrollbar — samo, če vsebina dejansko presega plotH
+    if (maxScrollY > 0) {
+        const trackX = W - PR + 10;
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(trackX, PT, 4, plotH);
+        const thumbH = Math.max(24, plotH * (plotH / contentH));
+        const thumbY = PT + (tlScrollY / maxScrollY) * (plotH - thumbH);
+        ctx.fillStyle = 'rgba(102,252,241,0.45)';
+        ctx.fillRect(trackX, thumbY, 4, thumbH);
+    }
 }
 
 // Timeline mouse events — registriraj na canvas
@@ -2240,21 +2664,20 @@ function tlRender() {
         // Hover detection
         const r = canvas.getBoundingClientRect();
         const sx = e.clientX - r.left, sy = e.clientY - r.top;
-        const { l: PL, t: PT, b: PB } = TL_PAD;
-        const plotW = canvas.width - PL - TL_PAD.r;
-        const plotH = canvas.height - PT - PB;
-        const rowH = Math.max(6, Math.min(24, plotH / Math.max(1, tlLocs.length)));
+        const { PL, PT, plotW, plotH, rowH } = tlLayout();
         if (!tlDateMin) return;
         const tRange = tlDateMax - tlDateMin || 1;
         const toX = ts => PL + tlPanX + ((ts - tlDateMin) / tRange) * plotW * tlZoom;
         const HIT = Math.max(5, rowH * 0.6);
+        const firstRow = Math.max(0, Math.floor(tlScrollY / rowH));
+        const lastRow  = Math.min(tlLocs.length - 1, Math.ceil((tlScrollY + plotH) / rowH));
 
         let found = null;
         for (const entry of tlData) {
+            const i = tlLocIndexByKey.get(entry.locKey);
+            if (i === undefined || i < firstRow || i > lastRow) continue;
             const x = toX(entry.ts);
-            const i = tlLocs.findIndex(l => l.key === entry.locKey);
-            if (i < 0) continue;
-            const y = PT + i * rowH + rowH / 2;
+            const y = PT + i * rowH + rowH / 2 - tlScrollY;
             if (Math.hypot(sx - x, sy - y) < HIT) { found = entry; break; }
         }
         tlHover = found ? { entry: found } : null;
@@ -2263,7 +2686,7 @@ function tlRender() {
         const tt = document.getElementById('tl-tooltip');
         if (found) {
             const d = new Date(found.ts);
-            const ds = d.toLocaleDateString('sl-SI', { day:'2-digit', month:'long', year:'numeric' });
+            const ds = d.toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'sl-SI', { day:'2-digit', month:'long', year:'numeric' });
             const snip = found.content.slice(0, 180) + (found.content.length > 180 ? '…' : '');
             tt.innerHTML = `<div style="color:#66fcf1;font-weight:600;margin-bottom:3px;">${escHtml(found.locName)}</div>
                 <div style="color:#555;font-size:0.85em;margin-bottom:6px;">${ds}</div>
@@ -2286,19 +2709,28 @@ function tlRender() {
         const moved = Math.abs(e.clientX - tlPanStartX);
         const clickedEntry = moved < 5 ? (tlClickHover?.entry || tlHover?.entry) : null;
         if (clickedEntry) {
-            const n = nodes.find(n => n.name.toLowerCase() === clickedEntry.locKey);
+            // BUGFIX: previously matched by comparing the node's plain name to the raw
+            // dream-location string, which rarely matched real data (see
+            // findNodeForLocationText) — most clicks silently did nothing but switch to
+            // a blank-looking map, with zero feedback either way. Now uses the same
+            // accurate match as the rest of Timeline, and always confirms what happened.
+            const n = tlNodeByLocKey.get(clickedEntry.locKey);
             if (n) {
                 switchMode('map');
+                tlFocusScId = clickedEntry.scId; // katero konkretno sanjo naj master view razširi/poskrola
                 setTimeout(() => {
                     openMasterView(n);
                     flashNodeId = n.id;
                     camX = canvas.width  / 2 - n.x * camScale;
                     camY = canvas.height / 2 - n.y * camScale;
+                    showToast(t('tl.opened_notice', n.name));
                     setTimeout(() => { flashNodeId = null; }, 800);
                 }, 50);
             } else {
-                // Lokacija ni v atlasu — samo zapri timeline
-                switchMode('map');
+                // Sanje se (še) ne ujemajo z nobenim bubble-om — ostanemo na timeline in to
+                // jasno povemo, namesto da tiho preklopimo na (navidezno nespremenjeno) karto.
+                const snippet = (clickedEntry.content || '').trim().slice(0, 40);
+                showToast(t('tl.not_in_atlas', snippet || clickedEntry.locName), true);
             }
         }
         tlClickHover = null;
@@ -2314,15 +2746,24 @@ function tlRender() {
     canvas.addEventListener('wheel', e => {
         if (viewMode !== 'timeline') return;
         e.preventDefault(); e.stopPropagation();
-        const factor = e.deltaY > 0 ? 0.88 : 1.14;
-        // Zoom na pozicijo miške
-        const r = canvas.getBoundingClientRect();
-        const mx = e.clientX - r.left;
-        const newZoom = Math.max(0.5, Math.min(8, tlZoom * factor));
-        tlPanX = mx - (mx - tlPanX) * (newZoom / tlZoom);
-        tlZoom = newZoom;
-        const s = document.getElementById('tl-zoom-slider');
-        if (s) { s.value = tlZoom; document.getElementById('tl-zoom-lbl').textContent = Math.round(tlZoom * 100) + '%'; }
+
+        // Ctrl/Cmd+scroll = zoom časovne osi (enaka konvencija kot Google Maps/Figma/brskalniki).
+        // Navaden scroll = vertikalno drsenje po vrsticah (lokacijah) — z 80+ bubble-i je to
+        // veliko pogosteje uporabljena gesta, zato dobi "prazen" scroll.
+        if (e.ctrlKey || e.metaKey) {
+            const factor = e.deltaY > 0 ? 0.88 : 1.14;
+            const r = canvas.getBoundingClientRect();
+            const mx = e.clientX - r.left;
+            const newZoom = Math.max(0.5, Math.min(8, tlZoom * factor));
+            tlPanX = mx - (mx - tlPanX) * (newZoom / tlZoom);
+            tlZoom = newZoom;
+            const s = document.getElementById('tl-zoom-slider');
+            if (s) { s.value = tlZoom; document.getElementById('tl-zoom-lbl').textContent = Math.round(tlZoom * 100) + '%'; }
+            return;
+        }
+
+        const { maxScrollY } = tlLayout();
+        tlScrollY = Math.max(0, Math.min(maxScrollY, tlScrollY + e.deltaY));
     }, { passive: false, capture: true });
 })();
 
@@ -2330,10 +2771,18 @@ function tlSetZoom(val) {
     tlZoom = val;
     document.getElementById('tl-zoom-lbl').textContent = Math.round(val * 100) + '%';
 }
-function tlSetFilter(val) { tlFilter = val; buildTlData(); }
-function tlSetTop(val)    { tlTop = val; buildTlData(); }
+function tlSetFilter(val) { tlFilter = val; rebuildTimelineAsync(false); }
+function tlSetTop(val)    { tlTop = (val === 'all') ? Infinity : +val; rebuildTimelineAsync(false); }
+function updateTlCountLbl() {
+    const el = document.getElementById('tl-count-lbl');
+    if (!el) return;
+    el.title = t('tl.count.hint');
+    // Ko Top ni omejen (Vse) je shown === total, torej samo eno število —
+    // "X/Y" ima smisel le, ko je dejansko kaj odrezano.
+    el.textContent = (tlLocsShown < tlLocsTotal) ? `${tlLocsShown}/${tlLocsTotal}` : `${tlLocsTotal}`;
+}
 function tlResetView()    {
-    tlZoom = 1; tlPanX = 0;
+    tlZoom = 1; tlPanX = 0; tlScrollY = 0;
     const s = document.getElementById('tl-zoom-slider');
     if (s) { s.value = 1; document.getElementById('tl-zoom-lbl').textContent = '100%'; }
 }
@@ -2438,8 +2887,36 @@ let mouseDownPos = { x:0, y:0 };
 // Shranimo začetne pozicije childov pri začetku draga parenta
 let dragChildOffsets = [];
 
+// NOVA FUNKCIJA: Ctrl/Cmd+klik na mehurček, nato Ctrl/Cmd+klik na drugega → ustvari warp
+// med njima. Klik na isti mehurček ali Esc prekliče. Živa predogledna črta se izriše v
+// drawWarps() med izbranim mehurčkom in trenutno pozicijo miške.
+let warpLinkFrom = null;
+let warpLinkMouse = null;
+
 canvas.addEventListener('mousedown', e => {
     const { mx, my, sx, sy } = getMouse(e);
+
+    if (e.ctrlKey || e.metaKey) {
+        const hit = hitTest(mx, my);
+        if (!hit) {
+            if (warpLinkFrom) { warpLinkFrom = null; flashNodeId = null; showToast(t('warp.link_cancelled')); }
+            return;
+        }
+        if (!warpLinkFrom) {
+            warpLinkFrom = hit;
+            flashNodeId = hit.id;
+            showToast(t('warp.link_pick_second', hit.name));
+        } else if (hit.id === warpLinkFrom.id) {
+            warpLinkFrom = null; flashNodeId = null;
+            showToast(t('warp.link_cancelled'));
+        } else {
+            const result = createWarpBetween(warpLinkFrom.id, hit.id, false);
+            showToast(result.success ? t('warp.link_created', warpLinkFrom.name, hit.name) : t(result.errorKey), !result.success);
+            warpLinkFrom = null; flashNodeId = null;
+        }
+        return; // Ctrl+klik nikoli ne sproži normalnega drag/pan vedenja spodaj
+    }
+
     mouseDownPos = { x: mx, y: my };
     const hit = hitTest(mx, my);
     if (hit) {
@@ -2462,6 +2939,7 @@ canvas.addEventListener('mousedown', e => {
 
 canvas.addEventListener('mousemove', e => {
     const { mx, my, sx, sy } = getMouse(e);
+    if (warpLinkFrom) warpLinkMouse = { x: mx, y: my };
 
     // Pan
     if (isPanning) {
@@ -2585,7 +3063,12 @@ function hitTest(mx, my) {
     return null;
 }
 // Scroll wheel zoom — zoom na pozicijo miške
+// BUGFIX: manjkal je viewMode guard — ta handler in Timeline-ov wheel handler sta oba
+// registrirana na istem <canvas>, in stopPropagation() ne prepreči drugih listenerjev
+// na istem elementu (samo stopImmediatePropagation() bi to naredil). Brez guarda se je
+// med scrollanjem po Timeline v ozadju tiho spreminjala tudi kamera karte.
 canvas.addEventListener('wheel', e => {
+    if (viewMode !== 'map') return;
     e.preventDefault();
     const r = canvas.getBoundingClientRect();
     const sx = e.clientX - r.left;
@@ -2596,10 +3079,27 @@ canvas.addEventListener('wheel', e => {
     camX = sx - (sx - camX) * (newScale / camScale);
     camY = sy - (sy - camY) * (newScale / camScale);
     camScale = newScale;
+    updateMapZoomLbl();
 }, { passive: false });
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
+    // Esc prekliče morebiten aktiven Ctrl+klik warp-link, ne glede na to, ali je
+    // Ctrl v tem trenutku še pritisnjen (zato izven spodnjega !e.ctrlKey bloka).
+    if (e.key === 'Escape' && warpLinkFrom) {
+        warpLinkFrom = null; flashNodeId = null; warpLinkMouse = null;
+        showToast(t('warp.link_cancelled'));
+    }
+    // Esc zapre samo vrh panel stacka (glej PANEL STACK zgoraj) — deluje ne
+    // glede na fokus, torej tudi medtem ko tipkaš v node-search inputu ali v
+    // master-view edit poljih. Prej sta ESC lovila DVA ločena keydown
+    // listenerja, vsak je zaprl svoj trdo kodiran seznam panelov (od tod vtis,
+    // da Esc "zapre vse naenkrat") — zdaj je en sam listener, en sam vir resnice.
+    if (e.key === 'Escape' && panelStack.length) {
+        e.preventDefault();
+        closeTopPanel();
+        return;
+    }
     if (e.ctrlKey && e.key === '0') { e.preventDefault(); resetCamera(); }
     if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undoAction(); }
     if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redoAction(); }
@@ -2624,18 +3124,21 @@ document.addEventListener('keydown', e => {
         if (e.key === 'd' || e.key === 'D') { e.preventDefault(); document.getElementById('global-search')?.focus(); }
         if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.2); }
         if (e.key === '-') { e.preventDefault(); zoomBy(0.83); }
-        if (e.key === 'Escape') {
-            closePanel('master-view');
-            closeInsights();
-            closeNodeSearch();
-        }
     }
     if (!e.ctrlKey && !e.altKey && e.key === 'm' && !searchActive
         && document.activeElement.tagName !== 'INPUT'
         && document.activeElement.tagName !== 'TEXTAREA') {
         toggleMinimap();
     }
+    // Združeno sem iz drugega (prej ločenega) keydown listenerja — glej opombo
+    // ob panelStacku, zakaj je bilo imeti dva neodvisna listenerja problematično.
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.key.toLowerCase() === 'h') toggleHelp();
 });
+
+function updateMapZoomLbl() {
+    const el = document.getElementById('map-zoom-lbl');
+    if (el) el.textContent = Math.round(camScale * 100) + '%';
+}
 
 function resetCamera() {
     const home = nodes.find(n => n.isHome);
@@ -2646,6 +3149,7 @@ function resetCamera() {
     } else {
         camX = 0; camY = 0;
     }
+    updateMapZoomLbl();
 }
 function toggleMinimap() {
     MM.visible = !MM.visible;
@@ -2659,6 +3163,7 @@ function zoomBy(factor) {
     camX = cx - (cx - camX) * (newScale / camScale);
     camY = cy - (cy - camY) * (newScale / camScale);
     camScale = newScale;
+    updateMapZoomLbl();
 }
 function saveNodePosition(node) {
     if (!db || node.isHome) return;
@@ -2756,12 +3261,29 @@ function saveParent(val) {
             return;
         }
     }
+    // TECH DEBT FIX: saveParent() prej ni bil pokrit z undo/redo.
+    const oldParentId = activeNode.parentId ?? null;
+    const targetId = activeNode.id;
     try {
-        db.run("UPDATE Atlas_Nodes SET ParentId=? WHERE Id=?", [newParentId, activeNode.id]);
+        db.run("UPDATE Atlas_Nodes SET ParentId=? WHERE Id=?", [newParentId, targetId]);
         activeNode.parentId = newParentId;
-        const n = nodes.find(n => n.id === activeNode.id);
+        const n = nodes.find(n => n.id === targetId);
         if (n) n.parentId = newParentId;
         markUnsaved(); refreshData();
+        pushUndo({
+            undo: () => {
+                db.run("UPDATE Atlas_Nodes SET ParentId=? WHERE Id=?", [oldParentId, targetId]);
+                const n2 = nodeMap.get(targetId); if (n2) n2.parentId = oldParentId;
+                if (activeNode?.id === targetId) { activeNode.parentId = oldParentId; populateParentSelect(activeNode); }
+                markUnsaved(); refreshData();
+            },
+            redo: () => {
+                db.run("UPDATE Atlas_Nodes SET ParentId=? WHERE Id=?", [newParentId, targetId]);
+                const n2 = nodeMap.get(targetId); if (n2) n2.parentId = newParentId;
+                if (activeNode?.id === targetId) { activeNode.parentId = newParentId; populateParentSelect(activeNode); }
+                markUnsaved(); refreshData();
+            }
+        });
     } catch(e) { console.error(e.message); }
 }
 
@@ -2857,25 +3379,70 @@ function populateParentSelect(node) {
 
 function saveSearchTerms(val) {
     if (!activeNode || !db) return;
-    const terms = val.trim();
+    const terms = val.trim() || null;
+    const oldTerms = activeNode.searchTerms ?? null;
+    const targetId = activeNode.id;
+    if (terms === oldTerms) return; // brez spremembe
     try {
-        db.run("UPDATE Atlas_Nodes SET SearchTerms=? WHERE Id=?", [terms || null, activeNode.id]);
-        activeNode.searchTerms = terms || null;
-        const n = nodeMap.get(activeNode.id);
-        if (n) n.searchTerms = terms || null;
+        db.run("UPDATE Atlas_Nodes SET SearchTerms=? WHERE Id=?", [terms, targetId]);
+        activeNode.searchTerms = terms;
+        const n = nodeMap.get(targetId);
+        if (n) n.searchTerms = terms;
         markUnsaved();
         updateNodeIndicator(activeNode);
+        // TECH DEBT FIX: saveSearchTerms() prej ni bil pokrit z undo/redo.
+        pushUndo({
+            undo: () => {
+                db.run("UPDATE Atlas_Nodes SET SearchTerms=? WHERE Id=?", [oldTerms, targetId]);
+                const n2 = nodeMap.get(targetId); if (n2) n2.searchTerms = oldTerms;
+                if (activeNode?.id === targetId) {
+                    activeNode.searchTerms = oldTerms;
+                    document.getElementById('mv-search-terms').value = oldTerms || '';
+                    updateNodeIndicator(activeNode);
+                }
+                markUnsaved(); refreshData();
+            },
+            redo: () => {
+                db.run("UPDATE Atlas_Nodes SET SearchTerms=? WHERE Id=?", [terms, targetId]);
+                const n2 = nodeMap.get(targetId); if (n2) n2.searchTerms = terms;
+                if (activeNode?.id === targetId) {
+                    activeNode.searchTerms = terms;
+                    document.getElementById('mv-search-terms').value = terms || '';
+                    updateNodeIndicator(activeNode);
+                }
+                markUnsaved(); refreshData();
+            }
+        });
     } catch(e) {}
 }
 
 function saveNotes(val) {
     if (!activeNode || !db) return;
+    const notes = val.trim() || null;
+    const oldNotes = activeNode.notes ?? null;
+    const targetId = activeNode.id;
+    if (notes === oldNotes) return; // brez spremembe
     try {
-        db.run("UPDATE Atlas_Nodes SET Notes=? WHERE Id=?", [val.trim() || null, activeNode.id]);
-        activeNode.notes = val.trim() || null;
-        const n = nodeMap.get(activeNode.id);
-        if (n) n.notes = val.trim() || null;
+        db.run("UPDATE Atlas_Nodes SET Notes=? WHERE Id=?", [notes, targetId]);
+        activeNode.notes = notes;
+        const n = nodeMap.get(targetId);
+        if (n) n.notes = notes;
         markUnsaved();
+        // TECH DEBT FIX: saveNotes() prej ni bil pokrit z undo/redo.
+        pushUndo({
+            undo: () => {
+                db.run("UPDATE Atlas_Nodes SET Notes=? WHERE Id=?", [oldNotes, targetId]);
+                const n2 = nodeMap.get(targetId); if (n2) n2.notes = oldNotes;
+                if (activeNode?.id === targetId) { activeNode.notes = oldNotes; document.getElementById('mv-notes').value = oldNotes || ''; }
+                markUnsaved();
+            },
+            redo: () => {
+                db.run("UPDATE Atlas_Nodes SET Notes=? WHERE Id=?", [notes, targetId]);
+                const n2 = nodeMap.get(targetId); if (n2) n2.notes = notes;
+                if (activeNode?.id === targetId) { activeNode.notes = notes; document.getElementById('mv-notes').value = notes || ''; }
+                markUnsaved();
+            }
+        });
     } catch(e) {}
 }
 
@@ -3040,8 +3607,39 @@ function unpinDream(sleepCycleId) {
 // ─────────────────────────────────────────────
 //  MASTER VIEW
 // ─────────────────────────────────────────────
+function renderConnectionsSection(node) {
+    const connectedWarps = warps.filter(w => w.from === node.id || w.to === node.id);
+    const connSec = document.getElementById('mv-connections');
+    const connList = document.getElementById('mv-connections-list');
+    const warpsVal = document.getElementById('mv-stat-warps-val');
+    if (warpsVal) warpsVal.textContent = connectedWarps.length;
+    if (connectedWarps.length > 0) {
+        connSec.style.display = 'block';
+        connList.innerHTML = connectedWarps.map(w => {
+            const other = nodeMap.get(w.from === node.id ? w.to : w.from);
+            const iFrom = w.from === node.id;
+            let dirLabel, dirTitle;
+            if (!w.oneWay) { dirLabel = '↔'; dirTitle = t('warp.twoway'); }
+            else if (iFrom) { dirLabel = '→'; dirTitle = t('warp.oneway_out'); }
+            else { dirLabel = '←'; dirTitle = t('warp.oneway_in'); }
+            return `<div style="font-size:0.78em; padding:5px 0; border-bottom:1px solid #1a1a1a;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span><span style="color:var(--warp); cursor:help;" title="${dirTitle}">${dirLabel}</span> ${escHtml(other ? other.name : '?')}</span>
+                    <span style="display:flex; gap:6px; align-items:center;">
+                        <button onclick="toggleWarpOneWay(${w.id})" title="${t('warp.toggle_oneway')}"
+                            style="background:none;border:1px solid #333;color:${w.oneWay ? 'var(--warp)' : 'var(--muted)'};border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">${w.oneWay ? '→' : '↔'}</button>
+                        ${w.oneWay ? `<button onclick="flipWarp(${w.id})" title="${t('warp.flip')}" style="background:none;border:1px solid #333;color:var(--muted);border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">⇄</button>` : ''}
+                        <button onclick="deleteWarp(${w.id})" title="${t('warp.delete')}" style="background:none;border:none;color:var(--muted);font-size:1em;cursor:pointer;padding:0 2px;">✕</button>
+                    </span>
+                </div>
+            </div>`;
+        }).join('');
+    } else { connSec.style.display = 'none'; }
+}
+
 function openMasterView(node) {
     activeNode = node;
+    pushPanel('master-view');
     resetMasterViewUI('node');
     if (MM.visible) { MM._wasVisible = true; MM.visible = false; MM.x = 0; } // skrij minimap
 
@@ -3088,7 +3686,7 @@ function openMasterView(node) {
     document.getElementById('mv-stats').innerHTML = `
         <div class="stat-box"><div class="stat-val">${dreamCount}</div><div class="stat-lbl">${t('mv.stat.dreams')}</div></div>
         <div class="stat-box"><div class="stat-val">${parseFloat(stab).toFixed(1)}</div><div class="stat-lbl">${t('mv.stat.stability')}</div></div>
-        <div class="stat-box"><div class="stat-val">${connectedWarps.length}</div><div class="stat-lbl">${t('mv.stat.warps')}</div></div>
+        <div class="stat-box"><div class="stat-val" id="mv-stat-warps-val">${connectedWarps.length}</div><div class="stat-lbl">${t('mv.stat.warps')}</div></div>
     `;
 
     const childSec = document.getElementById('mv-children');
@@ -3104,30 +3702,7 @@ function openMasterView(node) {
         }).join('');
     } else { childSec.style.display = 'none'; }
 
-    const connSec = document.getElementById('mv-connections');
-    const connList = document.getElementById('mv-connections-list');
-    if (connectedWarps.length > 0) {
-        connSec.style.display = 'block';
-        connList.innerHTML = connectedWarps.map(w => {
-            const other = nodeMap.get(w.from === node.id ? w.to : w.from);
-            const iFrom = w.from === node.id;
-            let dirLabel, dirTitle;
-            if (!w.oneWay) { dirLabel = '↔'; dirTitle = t('warp.twoway'); }
-            else if (iFrom) { dirLabel = '→'; dirTitle = t('warp.oneway_out'); }
-            else { dirLabel = '←'; dirTitle = t('warp.oneway_in'); }
-            return `<div style="font-size:0.78em; padding:5px 0; border-bottom:1px solid #1a1a1a;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span><span style="color:var(--warp); cursor:help;" title="${dirTitle}">${dirLabel}</span> ${escHtml(other ? other.name : '?')}</span>
-                    <span style="display:flex; gap:6px; align-items:center;">
-                        <button onclick="toggleWarpOneWay(${w.id})" title="${t('warp.toggle_oneway')}"
-                            style="background:none;border:1px solid #333;color:${w.oneWay ? 'var(--warp)' : 'var(--muted)'};border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">${w.oneWay ? '→' : '↔'}</button>
-                        ${w.oneWay ? `<button onclick="flipWarp(${w.id})" title="${t('warp.flip')}" style="background:none;border:1px solid #333;color:var(--muted);border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">⇄</button>` : ''}
-                        <button onclick="deleteWarp(${w.id})" title="${t('warp.delete')}" style="background:none;border:none;color:var(--muted);font-size:1em;cursor:pointer;padding:0 2px;">✕</button>
-                    </span>
-                </div>
-            </div>`;
-        }).join('');
-    } else { connSec.style.display = 'none'; }
+    renderConnectionsSection(node);
 
     // Async nalaganje sanj z novo iskalno logiko
     const capturedNode = node;
@@ -3147,8 +3722,35 @@ function openMasterView(node) {
             );
             currentDreams = q.length ? q[0].values : [];
         } catch(e) { currentDreams = []; }
+
+        // Če smo sem prišli s klikom na Timeline piko, poskrbi, da je ta konkretna
+        // sanja znotraj prve prikazane strani seznama (bubble ima lahko na desetine
+        // ali stotine sanj — brez tega bi klik na piko odprl bubble, a konkretna
+        // sanja bi ostala skrita spodaj v paginaciji).
+        if (tlFocusScId != null) {
+            const idx = currentDreams.findIndex(v => v[2] === tlFocusScId);
+            if (idx >= 0) dreamPage = Math.max(dreamPage, Math.ceil((idx + 1) / DREAM_PAGE_SIZE));
+        }
+
         renderDreamList(currentDreams, '');
+        focusTlDreamIfPending();
     }));
+}
+
+// Poskrolaj do in razširi točno tisto sanjo, ki je bila kliknjena na Timeline —
+// brez tega bi klik na piko samo odprl (lahko dolg) seznam sanj bubble-a in
+// uporabnik bi moral ročno iskati, katera od njih je bila mišljena.
+function focusTlDreamIfPending() {
+    if (tlFocusScId == null) return;
+    const target = tlFocusScId;
+    tlFocusScId = null;
+    requestAnimationFrame(() => {
+        const el = document.querySelector(`#mv-dreams-list .mv-dream-entry[data-scid="${target}"]`);
+        if (!el) return;
+        el.classList.add('expanded', 'flash');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => el.classList.remove('flash'), 1600);
+    });
 }
 
 // ─────────────────────────────────────────────
@@ -3183,14 +3785,14 @@ function renderDreamList(dreams, filterQ) {
     const remaining = filtered.length - visible.length;
 
     function buildEntry(v) {
-        const content = v[0] || '', date = v[1] || '?';
+        const content = v[0] || '', date = v[1] || '?', scId = v[2];
         let safeContent = escHtml(content);
         if (q) {
             const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const escapedQ = escHtml(safeQ);
             safeContent = safeContent.replace(new RegExp(escapedQ, 'gi'), m => `<mark>${m}</mark>`);
         }
-        return `<div class="mv-dream-entry" onclick="this.classList.toggle('expanded')">
+        return `<div class="mv-dream-entry" data-scid="${escHtml(scId)}" onclick="this.classList.toggle('expanded')">
             <div class="entry-date">${escHtml(date)}</div>
             <div class="entry-text">${safeContent}</div>
         </div>`;
@@ -3361,6 +3963,33 @@ function deleteCurrentNode() {
     } catch(e) { alert(t('node.error_delete') + e.message); }
 }
 
+// Skupna, preverjena logika za ustvarjanje warpa — uporablja jo tako uiCreateWarp()
+// (sidebar gumb) kot Ctrl+klik warp-linking (glej mousedown). Vrne { success } ali
+// { success:false, errorKey, errorExtra }, klicatelj sam poskrbi za prikaz sporočila
+// (alert za gumb, showToast za Ctrl+klik).
+function createWarpBetween(fromId, toId, oneWay) {
+    if (fromId === toId) return { success: false, errorKey: 'warp.error_same' };
+    const exists = warps.find(w => {
+        const sameDir = w.from === fromId && w.to === toId;
+        const revDir  = w.from === toId   && w.to === fromId;
+        if (oneWay) return sameDir; // enosmerni: prepove samo točno enako smer
+        return sameDir || revDir;   // dvosmerni: prepove obe smeri
+    });
+    if (exists) return { success: false, errorKey: 'warp.error_exists' };
+    try {
+        db.run("INSERT INTO Atlas_Warps (FromNodeId, ToNodeId, IsOneWay) VALUES (?,?,?)", [fromId, toId, oneWay ? 1 : 0]);
+        markUnsaved(); refreshWarpsOnly();
+        if (activeNode) renderConnectionsSection(activeNode);
+        const last = db.exec("SELECT Id FROM Atlas_Warps ORDER BY Id DESC LIMIT 1");
+        const newWarpId = last.length ? last[0].values[0][0] : null;
+        if (newWarpId) pushUndo({
+            undo: () => { db.run("DELETE FROM Atlas_Warps WHERE Id=?", [newWarpId]); markUnsaved(); refreshWarpsOnly(); if (activeNode) renderConnectionsSection(activeNode); },
+            redo: () => { db.run("INSERT INTO Atlas_Warps (Id,FromNodeId,ToNodeId,IsOneWay) VALUES (?,?,?,?)", [newWarpId, fromId, toId, oneWay ? 1 : 0]); markUnsaved(); refreshWarpsOnly(); if (activeNode) renderConnectionsSection(activeNode); }
+        });
+        return { success: true };
+    } catch(e) { return { success: false, errorKey: 'warp.error_create', errorExtra: e.message }; }
+}
+
 function uiCreateWarp() {
     if (!db) return;
     // BUGFIX: prej se je preverjalo samo "nodes.length < 2" in preprosto tiho
@@ -3380,29 +4009,15 @@ function uiCreateWarp() {
         alert(t('warp.error_no_selection'));
         return;
     }
-    if (fromId === toId) { alert(t('warp.error_same')); return; }
-    // Prepreči duplikat samo če gre za točno enako smer (enosmerni) ali katerokoli smer (dvosmerni)
-    const oneWay = document.getElementById('warp-oneway').checked ? 1 : 0;
-    const exists = warps.find(w => {
-        const sameDir = w.from === fromId && w.to === toId;
-        const revDir  = w.from === toId   && w.to === fromId;
-        if (oneWay) return sameDir; // enosmerni: prepove samo točno enako smer
-        return sameDir || revDir;   // dvosmerni: prepove obe smeri
-    });
-    if (exists) { alert(t('warp.error_exists')); return; }
-    try {
-        db.run("INSERT INTO Atlas_Warps (FromNodeId, ToNodeId, IsOneWay) VALUES (?,?,?)", [fromId, toId, oneWay]);
-        clearSearch('warp-search-from', 'clearWarpFrom', () => filterWarpSelect('warp-from', ''));
-        clearSearch('warp-search-to', 'clearWarpTo', () => filterWarpSelect('warp-to', ''));
-        document.getElementById('warp-oneway').checked = false;
-        markUnsaved(); refreshData();
-        const last = db.exec("SELECT Id FROM Atlas_Warps ORDER BY Id DESC LIMIT 1");
-        const newWarpId = last.length ? last[0].values[0][0] : null;
-        if (newWarpId) pushUndo({
-            undo: () => { db.run("DELETE FROM Atlas_Warps WHERE Id=?", [newWarpId]); markUnsaved(); refreshData(); if (activeNode) openMasterView(activeNode); },
-            redo: () => { db.run("INSERT INTO Atlas_Warps (Id,FromNodeId,ToNodeId,IsOneWay) VALUES (?,?,?,?)", [newWarpId, fromId, toId, oneWay]); markUnsaved(); refreshData(); if (activeNode) openMasterView(activeNode); }
-        });
-    } catch(e) { alert(t('warp.error_create') + e.message); }
+    const oneWay = document.getElementById('warp-oneway').checked;
+    const result = createWarpBetween(fromId, toId, oneWay);
+    if (!result.success) {
+        alert(t(result.errorKey) + (result.errorExtra || ''));
+        return;
+    }
+    clearSearch('warp-search-from', 'clearWarpFrom', () => filterWarpSelect('warp-from', ''));
+    clearSearch('warp-search-to', 'clearWarpTo', () => filterWarpSelect('warp-to', ''));
+    document.getElementById('warp-oneway').checked = false;
 }
 
 function deleteWarp(warpId) {
@@ -3412,11 +4027,11 @@ function deleteWarp(warpId) {
     const snap = { ...w };
     try {
         db.run("DELETE FROM Atlas_Warps WHERE Id=?", [warpId]);
-        markUnsaved(); refreshData();
-        if (activeNode) openMasterView(activeNode);
+        markUnsaved(); refreshWarpsOnly();
+        if (activeNode) renderConnectionsSection(activeNode);
         pushUndo({
-            undo: () => { db.run("INSERT INTO Atlas_Warps (Id,FromNodeId,ToNodeId,IsOneWay) VALUES (?,?,?,?)", [snap.id, snap.from, snap.to, snap.oneWay ? 1 : 0]); markUnsaved(); refreshData(); if (activeNode) openMasterView(activeNode); },
-            redo: () => { db.run("DELETE FROM Atlas_Warps WHERE Id=?", [snap.id]); markUnsaved(); refreshData(); if (activeNode) openMasterView(activeNode); }
+            undo: () => { db.run("INSERT INTO Atlas_Warps (Id,FromNodeId,ToNodeId,IsOneWay) VALUES (?,?,?,?)", [snap.id, snap.from, snap.to, snap.oneWay ? 1 : 0]); markUnsaved(); refreshWarpsOnly(); if (activeNode) renderConnectionsSection(activeNode); },
+            redo: () => { db.run("DELETE FROM Atlas_Warps WHERE Id=?", [snap.id]); markUnsaved(); refreshWarpsOnly(); if (activeNode) renderConnectionsSection(activeNode); }
         });
     } catch(e) {}
 }
@@ -3427,8 +4042,8 @@ function flipWarp(warpId) {
     if (!w) return;
     try {
         db.run("UPDATE Atlas_Warps SET FromNodeId=?, ToNodeId=? WHERE Id=?", [w.to, w.from, warpId]);
-        markUnsaved(); refreshData();
-        if (activeNode) openMasterView(activeNode);
+        markUnsaved(); refreshWarpsOnly();
+        if (activeNode) renderConnectionsSection(activeNode);
     } catch(e) {}
 }
 
@@ -3438,8 +4053,8 @@ function toggleWarpOneWay(warpId) {
     if (!w) return;
     try {
         db.run("UPDATE Atlas_Warps SET IsOneWay=? WHERE Id=?", [w.oneWay ? 0 : 1, warpId]);
-        markUnsaved(); refreshData();
-        if (activeNode) openMasterView(activeNode);
+        markUnsaved(); refreshWarpsOnly();
+        if (activeNode) renderConnectionsSection(activeNode);
     } catch(e) {}
 }
 
@@ -3450,10 +4065,13 @@ function toggleL(layer, btn) { layers[layer] = !layers[layer]; btn.classList.tog
 
 function toggleHelp() {
     const hp = document.getElementById('help-panel');
-    hp.style.display = hp.style.display === 'block' ? 'none' : 'block';
+    const willOpen = hp.style.display !== 'block';
+    hp.style.display = willOpen ? 'block' : 'none';
+    if (willOpen) pushPanel('help-panel'); else popPanel('help-panel');
 }
 
 function closePanel(id) {
+    popPanel(id);
     // BUG #1 FIX: resetMasterViewUI nastavi display:flex, zato skrijemo šele po njem
     if (id === 'master-view') {
         activeNode = null;
@@ -3484,11 +4102,36 @@ function escHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-document.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key.toLowerCase() === 'h') toggleHelp();
-    if (e.key === 'Escape') { closePanel('master-view'); closePanel('help-panel'); }
-});
+// Splošno, majhno obvestilo na dnu zaslona — daje jasno povratno informacijo za akcije,
+// ki se sicer zgodijo "tiho" (npr. klik na timeline piko, Ctrl+klik za nov warp).
+function showToast(msg, isWarning = false) {
+    let toast = document.getElementById('orbis-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'orbis-toast';
+        toast.style.cssText = 'position:fixed; bottom:60px; left:50%; transform:translateX(-50%);' +
+            'background:rgba(8,9,10,0.95); border:1px solid #333; border-radius:8px;' +
+            'padding:8px 16px; font-size:0.8em; font-family:Inter,sans-serif; z-index:9999;' +
+            'box-shadow:0 4px 20px rgba(0,0,0,0.6); pointer-events:none; transition:opacity 0.25s; display:none;';
+        document.body.appendChild(toast);
+    }
+    toast.style.color = isWarning ? 'var(--warp)' : 'var(--accent)';
+    toast.style.borderColor = isWarning ? 'var(--warp)' : '#333';
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    toast.style.opacity = '1';
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 250);
+    }, 1800);
+}
+
+// Opomba: tu je bil prej DRUG, ločen keydown listener, ki je neodvisno lovil
+// isto tipko 'h' ter Escape (s svojim trdo kodiranim seznamom panelov) — oba
+// listenerja sta se sprožila na isti pritisk tipke, kar je povzročalo, da je
+// Escape zapiral panele iz obeh seznamov naenkrat. Zdaj je vse združeno v en
+// sam keydown listener zgoraj (glej panelStack / closeTopPanel).
 </script>
 </body>
 </html>
