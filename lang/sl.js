@@ -149,6 +149,7 @@ window.LANG_SL = {
     'tl.filter.orbis_only': 'Samo Orbis',
     'tl.top.all': 'Vse',
     'tl.count.hint': 'Prikazanih lokacij (glede na Filter + Top)',
+    'tl.count.label': 'Prikazano:',
     'tl.exit_button': '✕ Karta',
 
     // ── Tooltip / status bar ─────────────────────────────

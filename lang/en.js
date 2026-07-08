@@ -149,6 +149,7 @@ window.LANG_EN = {
     'tl.filter.orbis_only': 'Orbis only',
     'tl.top.all': 'All',
     'tl.count.hint': 'Locations shown (Filter + Top applied)',
+    'tl.count.label': 'Shown:',
     'tl.exit_button': '✕ Map',
 
     // ── Tooltip / status bar ─────────────────────────────

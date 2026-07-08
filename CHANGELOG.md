@@ -3,6 +3,15 @@
 Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Trenutna verzija je vidna tudi
 v aplikaciji zgoraj levo (klikni nanjo za isti seznam znotraj UI-ja).
 
+## v9.0.8 — 2026-07-08
+
+- Timeline counter iz 9.0.7 je bil samo gola številka brez oznake (npr. "81"
+  med dvema ločilnima črtama) — lahko ga je spregledati, saj ni bilo videti
+  kot label. Dodana predpona "Prikazano:" ("Shown:" v EN), da je jasno, kaj
+  številka pomeni. Preverjeno s headless brskalnikom: logika je bila pravilna
+  že v 9.0.7 (izračun in izris sta delovala), šlo je zgolj za vizualno
+  diskretnost.
+
 ## v9.0.7 — 2026-07-08
 
 - Popravljeni trije jezikovni spodrsljaji: (1) datum v statusu Pozabljanja je
