@@ -899,8 +899,19 @@ function setLang(lang) {
 //  prevodih (app.subtitle) — zato se je pri bumpu skoraj vedno kje pozabila
 //  posodobiti. Zdaj: spremeni APP_VERSION spodaj, dodaj vnos v CHANGELOG, konec.
 // ─────────────────────────────────────────────
-const APP_VERSION = '9.0.8';
+const APP_VERSION = '9.0.9';
 const CHANGELOG = [
+    {
+        version: '9.0.9', date: '2026-07-09',
+        notes: {
+            sl: [
+                'Home node je imel v resnici NESTABILNO svetovno pozicijo: centerHomeNode() je vsak frame (in ob vsakem resize-u) prepisal h.x/h.y na trenutno canvas.width/2, canvas.height/2 — namesto da bi Home imel fiksno pozicijo iz baze kot vsak drug node. Na drugačni velikosti zaslona se je Home dejansko premaknil v svetovnem prostoru, medtem ko so ostali nodi ostali pri svojih shranjenih koordinatah — relativne pozicije so se razbile. Home zdaj obdrži svojo pravo, fiksno X/Y iz baze; centriranje na zaslon je izključno stvar kamere (resetCamera), ne premika samega noda. Preverjeno s headless testom pri treh različnih velikostih zaslona — relativni odmik med Home in ostalimi nodi zdaj ostane enak ne glede na velikost zaslona.',
+            ],
+            en: [
+                'The Home node actually had an UNSTABLE world position: centerHomeNode() rewrote h.x/h.y to the current canvas.width/2, canvas.height/2 on every single frame (and on every resize) — instead of Home having a fixed position from the database like every other node. On a different screen size, Home would actually move in world space while every other node stayed at its stored coordinates — breaking relative positions between them. Home now keeps its real, fixed X/Y from the database; centering on screen is purely a camera concern (resetCamera), not a move of the node itself. Verified with a headless test across three different screen sizes — the relative offset between Home and other nodes now stays identical regardless of screen size.',
+            ],
+        }
+    },
     {
         version: '9.0.8', date: '2026-07-08',
         notes: {
@@ -1940,7 +1951,8 @@ function resizeCanvas() {
     const vp = document.getElementById('viewport');
     const newW = vp.clientWidth, newH = vp.clientHeight;
     // Kompenzacija ob spremembi velikosti okna/sidebar-ja, da kamera ostane vizualno
-    // stabilna (centerHomeNode() spodaj vedno prestavi DOM node na novo središče).
+    // stabilna — ohrani trenutno gledano svetovno točko na istem mestu na zaslonu,
+    // ne glede na to, kateri node (če sploh kateri) je ravno tam.
     if (canvasSized) {
         camX += camScale * (canvas.width - newW) / 2;
         camY += camScale * (canvas.height - newH) / 2;
@@ -1948,15 +1960,18 @@ function resizeCanvas() {
     canvas.width = newW;
     canvas.height = newH;
     canvasSized = true;
-    centerHomeNode();
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
-function centerHomeNode() {
-    const h = nodes.find(n => n.isHome);
-    if (h) { h.x = canvas.width / 2; h.y = canvas.height / 2; }
-}
+// BUGFIX: centerHomeNode() je prej vsak frame (in ob vsakem resize-u) prepisal
+// SVETOVNO koordinato Home noda na trenutno velikost canvasa (h.x = canvas.width/2),
+// namesto da bi Home imel svojo fiksno, iz baze prebrano pozicijo kot vsak drug node.
+// Na drugačni velikosti zaslona se je Home tako "premaknil" v svetovnem prostoru,
+// medtem ko so vsi ostali nodi ostali na svojih shranjenih koordinatah — kar je
+// razbilo relativne pozicije med Home in preostalimi nodi. Centriranje Home-a na
+// zaslon je in mora ostati izključno stvar kamere (glej resetCamera), ne premika
+// samega noda — funkcija je zato v celoti odstranjena.
 
 // ─────────────────────────────────────────────
 //  RENDER — posamezne funkcije po slojih
@@ -2302,7 +2317,6 @@ function animate(ts) {
     lastFrameTime = ts; animFrame++;
     glitchOffset.x = Math.sin(animFrame * 0.04) * 1.5;
     glitchOffset.y = Math.cos(animFrame * 0.06) * 1.5;
-    centerHomeNode();
 
     const W = canvas.width, H = canvas.height;
     ctx.clearRect(0, 0, W, H);

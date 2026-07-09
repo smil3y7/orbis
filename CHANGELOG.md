@@ -3,6 +3,19 @@
 Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Trenutna verzija je vidna tudi
 v aplikaciji zgoraj levo (klikni nanjo za isti seznam znotraj UI-ja).
 
+## v9.0.9 — 2026-07-09
+
+- Home node je imel v resnici NESTABILNO svetovno pozicijo: centerHomeNode() je
+  vsak frame (in ob vsakem resize-u) prepisal h.x/h.y na trenutno
+  canvas.width/2, canvas.height/2 — namesto da bi Home imel fiksno pozicijo iz
+  baze kot vsak drug node. Na drugačni velikosti zaslona se je Home dejansko
+  premaknil v svetovnem prostoru, medtem ko so ostali nodi ostali pri svojih
+  shranjenih koordinatah — relativne pozicije so se razbile. Home zdaj obdrži
+  svojo pravo, fiksno X/Y iz baze; centriranje na zaslon je izključno stvar
+  kamere (resetCamera), ne premika samega noda. Preverjeno s headless testom
+  pri treh različnih velikostih zaslona — relativni odmik med Home in ostalimi
+  nodi zdaj ostane enak ne glede na velikost zaslona.
+
 ## v9.0.8 — 2026-07-08
 
 - Timeline counter iz 9.0.7 je bil samo gola številka brez oznake (npr. "81"
