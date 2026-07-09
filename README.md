@@ -2,7 +2,7 @@
 
 **Interaktivna karta sanjskega prostora** — vizualizacija lokacij iz sanjskega dnevnika kot mehurčkov (nodov) na animiranem canvasu.
 
-Del [Sentria](https://sentria.app) ekosistema.
+Del [Sentria]('') ekosistema.
 
 ---
 
