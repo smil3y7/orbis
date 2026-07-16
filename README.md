@@ -2,14 +2,14 @@
 
 **Interaktivna karta sanjskega prostora** — vizualizacija lokacij iz sanjskega dnevnika kot mehurčkov (nodov) na animiranem canvasu.
 
-Del [Sentria]('') ekosistema.
+Del [Sentria](https://sentria.app) ekosistema.
 
 ---
 
 ## Hiter začetek
 
 ```
-orbis_v9.0.9.html   ← odpri v brskalniku, naloži .sqlite bazo sanj
+orbis.html   ← odpri v brskalniku, naloži .sqlite bazo sanj
 ```
 
 Nobene namestitve, nobene odvisnosti, nobenega strežnika. Vse deluje lokalno, v brskalniku.
@@ -58,7 +58,7 @@ CDN: `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js`
 ## Struktura projekta
 
 ```
-orbis_v9.0.9.html      ← celotna aplikacija
+orbis.html      ← celotna aplikacija
 CHANGELOG.md           ← zgodovina sprememb (isto besedilo kot v Help → Changelog)
 ORBIS_GUIDE.md         ← tehnični vodič za razvijalce (shema, barve, i18n)
 vercel.json            ← konfiguracija za deploy na Vercel
@@ -73,7 +73,7 @@ Jezikovni datoteki se naložita pred glavno skripto:
 <script src="lang/en.js"></script>
 ```
 
-Vsaka nova verzija poveča `orbis_vX.Y.Z.html` — ime datoteke v tem repu vedno odraža trenutno verzijo aplikacije (glej `CHANGELOG.md` za podroben seznam sprememb po verzijah).
+Ime datoteke (`orbis.html`) je namenoma stabilno in se ne spreminja z verzijo — verzija živi samo v `APP_VERSION` (v kodi), v Help → Changelog in v `CHANGELOG.md`. To je zavestna odločitev: prej se je ime datoteke spreminjalo z vsako verzijo (`orbis_v9_0_2.html` ipd.), zaradi česar je `vercel.json` (ki mora kazati na točno pravo ime) zlahka zaostal in polomil deploy.
 
 ---
 

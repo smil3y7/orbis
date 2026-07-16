@@ -840,6 +840,19 @@
 const LANGUAGES = { sl: window.LANG_SL, en: window.LANG_EN };
 let currentLang = localStorage.getItem('orbis_lang') || 'sl';
 
+// DIAGNOSTIKA: sl.js in en.js morata imeti popolnoma isti nabor ključev — ni
+// avtomatskega build-time preverjanja, samo ta runtime opomnik. Manjkajoč
+// ključ v t() tiho pade nazaj na goli ključ (glej spodaj), kar je lahko v UI
+// videti kot naključno tehnično besedilo namesto prave napake v konzoli.
+(function checkLangKeyParity() {
+    const slKeys = new Set(Object.keys(window.LANG_SL || {}));
+    const enKeys = new Set(Object.keys(window.LANG_EN || {}));
+    const missingInEn = [...slKeys].filter(k => !enKeys.has(k));
+    const missingInSl = [...enKeys].filter(k => !slKeys.has(k));
+    if (missingInEn.length) console.warn('[i18n] Ključi v sl.js manjkajo v en.js:', missingInEn);
+    if (missingInSl.length) console.warn('[i18n] Ključi v en.js manjkajo v sl.js:', missingInSl);
+})();
+
 function t(key, ...args) {
     // lang/sl.js and lang/en.js are the single source of truth for every UI string
     // (see the "language files" cleanup — all 152 keys the app uses live there,
@@ -899,8 +912,36 @@ function setLang(lang) {
 //  prevodih (app.subtitle) — zato se je pri bumpu skoraj vedno kje pozabila
 //  posodobiti. Zdaj: spremeni APP_VERSION spodaj, dodaj vnos v CHANGELOG, konec.
 // ─────────────────────────────────────────────
-const APP_VERSION = '9.0.9';
+const APP_VERSION = '9.0.11';
 const CHANGELOG = [
+    {
+        version: '9.0.11', date: '2026-07-12',
+        notes: {
+            sl: [
+                'Iskanje sanj je zgrešilo ujemanja, kadar se je iskalna beseda v besedilu pojavila z veliko začetnico (npr. "Čas" na začetku stavka, iskalni izraz "čas") — SQLite-ov vgrajeni LOWER() folda samo ASCII, šumnike (č/š/ž) pusti nespremenjene. Ujemanje je zdaj v celoti prestavljeno v JS (isti regex pristop, ki ga Timeline že uporablja), kjer .toLowerCase() šumnike pravilno obravnava. Popravljeno v vseh štirih mestih, ki so prej gradila SQL WHERE z LOWER()/LIKE: štetje sanj na node, seznam sanj v Master View (2 mesti), in ročno iskanje sanj za pripenjanje.',
+            ],
+            en: [
+                'Dream search missed matches whenever the search word appeared capitalized in the text (e.g. "Čas" at the start of a sentence, search term "čas") — SQLite\'s built-in LOWER() only folds ASCII case, leaving diacritics (č/š/ž) unchanged. Matching has been moved entirely to JS (the same regex approach the Timeline already used), where .toLowerCase() handles diacritics correctly. Fixed in all four places that used to build a SQL WHERE with LOWER()/LIKE: per-node dream count, the Master View dream list (2 spots), and the manual pin-search box.',
+            ],
+        }
+    },
+    {
+        version: '9.0.10', date: '2026-07-10',
+        notes: {
+            sl: [
+                'saveSearchTerms() ni osvežil frekvenčnega predpomnilnika (barva mehurčka po pogostosti) ob shranjevanju — ostal je zastarel do naslednjega nepovezanega refresha. Nov refreshNodeFreq() naredi ciljan recompute samo za ta node (freqMax in barve vseh preostalih se preračunajo iz že predpomnjenih count-ov, brez dodatnih SQL klicev).',
+                'saveNodeEdits() (samo ime/tip) je po nepotrebnem klical poln refreshData() — enak razred nepotrebnega dela kot warp fix v 9.0.6, samo ni bil pokrit. Zdaj osveži samo tisto, kar je dejansko odvisno od imena (warp dropdowni, insights, timeline).',
+                'flipWarp() in toggleWarpOneWay() zdaj podpirata undo/redo (create/delete warpa sta ga že imela, direction-toggle ne).',
+                'Dodana startup diagnostika (console.warn), ki opozori, če sl.js in en.js nimata popolnoma istega nabora ključev — brez tega manjkajoč ključ tiho pade nazaj na goli ključ namesto berljivega besedila.',
+            ],
+            en: [
+                'saveSearchTerms() didn\'t refresh the frequency cache (bubble color by dream count) on save — it stayed stale until some unrelated refresh happened. New refreshNodeFreq() does a targeted recompute for just that node (freqMax and every other node\'s color are recalculated from already-cached counts, no extra SQL calls).',
+                'saveNodeEdits() (name/type only) used to call a full refreshData() unnecessarily — the same class of wasted work as the warp fix in 9.0.6, it just wasn\'t covered. It now only refreshes what actually depends on the name (warp dropdowns, insights, timeline).',
+                'flipWarp() and toggleWarpOneWay() now support undo/redo (warp create/delete already did, direction-toggle didn\'t).',
+                'Added a startup diagnostic (console.warn) that flags if sl.js and en.js don\'t have the exact same set of keys — without it a missing key silently falls back to the raw key instead of readable text.',
+            ],
+        }
+    },
     {
         version: '9.0.9', date: '2026-07-09',
         notes: {
@@ -1254,6 +1295,22 @@ let dreamPage = 1; // koliko strani je že prikazanih
 //  ISKALNA LOGIKA — besedne meje + SearchTerms
 // ─────────────────────────────────────────────
 
+// BUGFIX (šumniki): SQLite-ov vgrajeni LOWER() (brez ICU gradnje, kot jo
+// uporablja sql.js) folda samo ASCII — LOWER('Čas') ostane 'Čas', ne 'čas'.
+// Iskalni izraz "čas" se torej ni ujel z besedilom sanje, ki se je začelo z
+// veliko začetnico ("Čas je pobegnil..."), ker je prejšnja različica te
+// funkcije (buildDreamSearchSQL) filtriranje prepustila SQL-u. JS regex z
+// zastavico 'i' folda case pravilno tudi za šumnike — isti pristop, ki ga
+// Timeline (buildTlData) že dokazano uporablja. Vrne null, če node nima
+// nobenega (neprazno) iskalnega izraza.
+function buildNodeMatcher(node) {
+    const terms = getSearchTerms(node).filter(Boolean);
+    if (!terms.length) return null;
+    const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const alt = terms.map(escapeRe).join('|');
+    return new RegExp('(^|[ .,;!?\\-(])(?:' + alt + ')', 'i');
+}
+
 // Zgradi SQL WHERE pogoj in parametre za iskanje sanj po nodu
 function getSearchTerms(node) {
     if (node.searchTerms && node.searchTerms.trim())
@@ -1262,37 +1319,24 @@ function getSearchTerms(node) {
 }
 
 // (glej buildTlData spodaj za razlago, zakaj Timeline sanje veže na bubble prek
-// buildDreamSearchSQL/sc.Contents in ne prek uvoženega polja Dreams.Location)
-
-function buildDreamSearchSQL(node) {
-    const terms = getSearchTerms(node);
-    const allConds = [], allParams = [];
-    terms.forEach(term => {
-        const t = term.toLowerCase();
-        const conds = [], params = [];
-        conds.push('LOWER(sc.Contents) LIKE ?'); params.push(t + '%');
-        [' ', '.\x20', ',\x20', ';\x20', '!\x20', '?\x20', '-\x20', '('].forEach(p => {
-            conds.push('LOWER(sc.Contents) LIKE ?');
-            params.push('%' + p + t + '%');
-        });
-        allConds.push('(' + conds.join(' OR ') + ')');
-        allParams.push(...params);
-    });
-    allConds.push('sc.SleepCycleID IN (SELECT SleepCycleId FROM Atlas_NodeDreams WHERE NodeId = ?)');
-    allParams.push(node.id);
-    return { whereClause: allConds.join(' OR '), params: allParams };
-}
+// buildNodeMatcher/sc.Contents in ne prek uvoženega polja Dreams.Location)
 
 // Hitro štetje sanj za node (za stats in indikatorje)
 function countDreamsForNode(node) {
     if (!db) return 0;
     try {
-        const { whereClause, params } = buildDreamSearchSQL(node);
-        const res = db.exec(
-            `SELECT COUNT(DISTINCT sc.SleepCycleID) FROM SleepCycle sc WHERE ${whereClause}`,
-            params
-        );
-        return res.length ? (res[0].values[0][0] || 0) : 0;
+        const regex = buildNodeMatcher(node);
+        const res = db.exec('SELECT SleepCycleID, Contents FROM SleepCycle');
+        const matchedIds = new Set();
+        if (res.length) {
+            res[0].values.forEach(([scId, content]) => {
+                if (regex && regex.test(content || '')) matchedIds.add(scId);
+            });
+        }
+        // Ročno pripete sanje (Atlas_NodeDreams) se vedno štejejo, ne glede na regex.
+        const pinnedRes = db.exec('SELECT SleepCycleId FROM Atlas_NodeDreams WHERE NodeId = ?', [node.id]);
+        if (pinnedRes.length) pinnedRes[0].values.forEach(([scId]) => matchedIds.add(scId));
+        return matchedIds.size;
     } catch(e) { return 0; }
 }
 
@@ -1611,6 +1655,19 @@ function rebuildNodeFreqCache() {
 
 function getNodeFreq(node) {
     return nodeFreqCache.get(node.id)?.cnt || 0;
+}
+
+// PERF: lahek recompute freq-cache za EN sam node (npr. po urejanju SearchTerms
+// samo tega noda) — SQL LIKE-scan (countDreamsForNode, drag del) se naredi
+// samo zanj, freqMax in barve VSEH nodov pa se preračunajo iz že predpomnjenih
+// count-ov (čist JS Math.max + computeFreqColorRaw, brez dodatnih SQL klicev),
+// da barvna lestvica ostane konsistentna, tudi če ta node podre dosedanji max.
+function refreshNodeFreq(node) {
+    if (!node) return;
+    nodeFreqCache.set(node.id, { cnt: countDreamsForNode(node), color: null });
+    freqMax = Math.max(1, ...[...nodeFreqCache.values()].map(v => v.cnt));
+    nodeFreqCache.forEach(entry => { entry.color = computeFreqColorRaw(entry.cnt); });
+    if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
 }
 
 function freqColor(node) {
@@ -2422,7 +2479,7 @@ function parseDate(str) {
 // conditions per search term — that's what froze the UI for several seconds on
 // "T". Now we read every dream ONCE, then match all bubbles against it in memory
 // with one pre-compiled regex per bubble (same word-boundary semantics as
-// buildDreamSearchSQL), which is orders of magnitude fewer operations overall.
+// buildNodeMatcher), which is orders of magnitude fewer operations overall.
 function buildTlData() {
     tlData = []; tlLocs = [];
     if (!db) return;
@@ -2442,7 +2499,7 @@ function buildTlData() {
             .filter(r => r.ts);
 
         // Ročno pripete sanje (Atlas_NodeDreams) veljajo ne glede na besedilno ujemanje —
-        // enako kot v buildDreamSearchSQL().
+        // enako kot v buildNodeMatcher().
         const pinned = new Map(); // nodeId -> Set<scId>
         try {
             const pRes = db.exec(`SELECT NodeId, SleepCycleId FROM Atlas_NodeDreams`);
@@ -2454,13 +2511,9 @@ function buildTlData() {
 
         // En regex na bubble namesto 9 SQL LIKE-jev na iskalni izraz — isti pogoj
         // (izraz na začetku vsebine ALI takoj za ločilom), samo enkrat prekompiliran.
-        const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const nodeMatchers = nodes.map(n => {
-            const terms = getSearchTerms(n).filter(Boolean);
-            if (!terms.length) return { node: n, regex: null };
-            const alt = terms.map(escapeRe).join('|');
-            return { node: n, regex: new RegExp('(^|[ .,;!?\\-(])(?:' + alt + ')', 'i') };
-        });
+        // Deli isti helper (buildNodeMatcher) kot countDreamsForNode/master view,
+        // da se ista logika ne vzdržuje na dveh mestih.
+        const nodeMatchers = nodes.map(n => ({ node: n, regex: buildNodeMatcher(n) }));
 
         tlNodeByLocKey = new Map();
         const raw = [];
@@ -3246,14 +3299,28 @@ function saveNodeEdits() {
         const badge = document.getElementById('mv-type-badge');
         badge.textContent = `${TYPE_LABELS[newType] || '⬤'} ${t('mv.type.' + newType.toLowerCase())}`;
         badge.style.color = TYPE_COLORS[newType] || 'var(--accent)';
-        markUnsaved(); refreshData();
+        markUnsaved();
+        // PERF: Name/Type ne vplivata na dream-matching (freq-cache) ali na
+        // ParentId (group bounds) — poln refreshData() bi tu po nepotrebnem
+        // znova prebral bazo IN prešteval sanje za VSE node (glej warp-fix
+        // opombo zgoraj za isti razlog). Osvežimo samo, kar je dejansko
+        // odvisno od imena/tipa: warp dropdowne (prikazujeta imena), insights
+        // (če je odprt), in timeline dirty flag (tudi tam se vidi ime).
+        populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
+        populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
+        if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
+        tlDirty = true;
         pushUndo({
             undo: () => {
                 db.run("UPDATE Atlas_Nodes SET Name=?, Type=? WHERE Id=?", [oldName, oldType, targetNode.id]);
                 targetNode.name = oldName; targetNode.type = oldType;
                 const n = nodeMap.get(targetNode.id);
                 if (n) { n.name = oldName; n.type = oldType; }
-                markUnsaved(); refreshData();
+                markUnsaved();
+                populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
+                populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
+                if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
+                tlDirty = true;
                 if (activeNode?.id === targetNode.id) openMasterView(targetNode);
             },
             redo: () => {
@@ -3261,7 +3328,11 @@ function saveNodeEdits() {
                 targetNode.name = newName; targetNode.type = newType;
                 const n = nodeMap.get(targetNode.id);
                 if (n) { n.name = newName; n.type = newType; }
-                markUnsaved(); refreshData();
+                markUnsaved();
+                populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
+                populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
+                if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
+                tlDirty = true;
                 if (activeNode?.id === targetNode.id) openMasterView(targetNode);
             }
         });
@@ -3415,7 +3486,14 @@ function saveSearchTerms(val) {
         if (n) n.searchTerms = terms;
         markUnsaved();
         updateNodeIndicator(activeNode);
-        // TECH DEBT FIX: saveSearchTerms() prej ni bil pokrit z undo/redo.
+        // PERF+BUGFIX: SearchTerms vplivajo na to, katere sanje se štejejo za ta
+        // node (freq-cache barva) IN na Timeline ujemanje — prej forward pot ni
+        // osvežila NIČESAR (barva mehurčka je ostala zastarela do naslednjega
+        // nepovezanega refreshData()), undo/redo pa sta po nepotrebnem klicala
+        // poln refreshData() (recompute VSEH nodov). Zdaj oboje uporabi
+        // refreshNodeFreq() — SQL scan samo za ta node, tlDirty za Timeline.
+        refreshNodeFreq(n || activeNode);
+        tlDirty = true;
         pushUndo({
             undo: () => {
                 db.run("UPDATE Atlas_Nodes SET SearchTerms=? WHERE Id=?", [oldTerms, targetId]);
@@ -3425,7 +3503,7 @@ function saveSearchTerms(val) {
                     document.getElementById('mv-search-terms').value = oldTerms || '';
                     updateNodeIndicator(activeNode);
                 }
-                markUnsaved(); refreshData();
+                markUnsaved(); refreshNodeFreq(n2 || activeNode); tlDirty = true;
             },
             redo: () => {
                 db.run("UPDATE Atlas_Nodes SET SearchTerms=? WHERE Id=?", [terms, targetId]);
@@ -3435,7 +3513,7 @@ function saveSearchTerms(val) {
                     document.getElementById('mv-search-terms').value = terms || '';
                     updateNodeIndicator(activeNode);
                 }
-                markUnsaved(); refreshData();
+                markUnsaved(); refreshNodeFreq(n2 || activeNode); tlDirty = true;
             }
         });
     } catch(e) {}
@@ -3539,18 +3617,25 @@ function searchDreamsToPin(q) {
             return;
         }
         try {
-            // Poišči sanje ki ujamejo iskalni niz (datum ali vsebina)
+            // Poišči sanje ki ujamejo iskalni niz (datum ali vsebina).
+            // BUGFIX (šumniki): vsebino zdaj filtriramo v JS (.toLowerCase()),
+            // ne v SQL LOWER() (ki folda samo ASCII) — isti razlog kot pri
+            // buildNodeMatcher zgoraj. Datum ostane SQL-side LIKE, ker so
+            // datumi vedno ASCII in tam ni težave.
+            const qLower = q.toLowerCase();
             const res = db.exec(
                 `SELECT sc.SleepCycleID, d.Date_, sc.Contents,
                     CASE WHEN nd.SleepCycleId IS NOT NULL THEN 1 ELSE 0 END as isPinned
                  FROM SleepCycle sc
                  JOIN Dreams d ON sc.DreamID = d.DreamID
                  LEFT JOIN Atlas_NodeDreams nd ON nd.SleepCycleId = sc.SleepCycleID AND nd.NodeId = ?
-                 WHERE d.Date_ LIKE ? OR LOWER(sc.Contents) LIKE ?
-                 ORDER BY isPinned DESC, d.Date_ DESC LIMIT 20`,
-                [activeNode.id, `%${q}%`, `%${q.toLowerCase()}%`]
+                 ORDER BY isPinned DESC, d.Date_ DESC`,
+                [activeNode.id]
             );
-            const results = res.length ? res[0].values : [];
+            const allRows = res.length ? res[0].values : [];
+            const results = allRows
+                .filter(([, date, text]) => (date || '').includes(q) || (text || '').toLowerCase().includes(qLower))
+                .slice(0, 20);
             const container = document.getElementById('mv-pin-results');
             if (!results.length) {
                 container.innerHTML = `<div style='color:var(--muted); padding:4px 0;'>${t('mv.pin.no_results')}</div>`;
@@ -3588,16 +3673,19 @@ function refreshActiveNodeDreamList() {
     requestAnimationFrame(() => requestAnimationFrame(() => {
         if (activeNode?.id !== capturedNode.id) return;
         try {
-            const { whereClause, params } = buildDreamSearchSQL(capturedNode);
+            const regex = buildNodeMatcher(capturedNode);
             const q = db.exec(
                 `SELECT DISTINCT sc.Contents, d.Date_, sc.SleepCycleID,
                     CASE WHEN nd.SleepCycleId IS NOT NULL THEN 1 ELSE 0 END as isPinned
                  FROM SleepCycle sc JOIN Dreams d ON sc.DreamID = d.DreamID
                  LEFT JOIN Atlas_NodeDreams nd ON nd.SleepCycleId = sc.SleepCycleID AND nd.NodeId = ?
-                 WHERE ${whereClause} ORDER BY isPinned DESC, d.Date_ DESC`,
-                [capturedNode.id, ...params]
+                 ORDER BY isPinned DESC, d.Date_ DESC`,
+                [capturedNode.id]
             );
-            currentDreams = q.length ? q[0].values : [];
+            const rows = q.length ? q[0].values : [];
+            // BUGFIX (šumniki): filter je zdaj v JS (regex, glej buildNodeMatcher),
+            // ne več v SQL LOWER()/LIKE — glej opombo ob buildNodeMatcher zgoraj.
+            currentDreams = rows.filter(([content, , , isPinned]) => isPinned || (regex && regex.test(content || '')));
         } catch(e) { currentDreams = []; }
         renderDreamList(currentDreams, document.getElementById('mv-dream-search').value);
     }));
@@ -3734,18 +3822,20 @@ function openMasterView(node) {
     requestAnimationFrame(() => requestAnimationFrame(() => {
         if (!db || activeNode?.id !== capturedNode.id) return;
         try {
-            const { whereClause, params } = buildDreamSearchSQL(capturedNode);
+            const regex = buildNodeMatcher(capturedNode);
             const q = db.exec(
                 `SELECT DISTINCT sc.Contents, d.Date_, sc.SleepCycleID,
                     CASE WHEN nd.SleepCycleId IS NOT NULL THEN 1 ELSE 0 END as isPinned
                  FROM SleepCycle sc
                  JOIN Dreams d ON sc.DreamID = d.DreamID
                  LEFT JOIN Atlas_NodeDreams nd ON nd.SleepCycleId = sc.SleepCycleID AND nd.NodeId = ?
-                 WHERE ${whereClause}
                  ORDER BY isPinned DESC, d.Date_ DESC`,
-                [capturedNode.id, ...params]
+                [capturedNode.id]
             );
-            currentDreams = q.length ? q[0].values : [];
+            const rows = q.length ? q[0].values : [];
+            // BUGFIX (šumniki): filter je zdaj v JS (regex, glej buildNodeMatcher),
+            // ne več v SQL LOWER()/LIKE.
+            currentDreams = rows.filter(([content, , , isPinned]) => isPinned || (regex && regex.test(content || '')));
         } catch(e) { currentDreams = []; }
 
         // Če smo sem prišli s klikom na Timeline piko, poskrbi, da je ta konkretna
@@ -4061,25 +4151,38 @@ function deleteWarp(warpId) {
     } catch(e) {}
 }
 
-function flipWarp(warpId) {
-    if (!db) return;
+// TECH DEBT FIX: flipWarp()/toggleWarpOneWay() prej nista bila pokrita z
+// undo/redo (za razliko od create/delete warpa). Obe sta simetrični operaciji
+// (obrni nazaj = isto dejanje), zato undo in redo preprosto znova pokličeta
+// isto "raw" funkcijo, ki vedno prebere TRENUTNO stanje warpa iz `warps` —
+// brez zaprtih (stale) vrednosti iz trenutka klica.
+function flipWarpRaw(warpId) {
     const w = warps.find(w => w.id === warpId);
     if (!w) return;
+    db.run("UPDATE Atlas_Warps SET FromNodeId=?, ToNodeId=? WHERE Id=?", [w.to, w.from, warpId]);
+    markUnsaved(); refreshWarpsOnly();
+    if (activeNode) renderConnectionsSection(activeNode);
+}
+function flipWarp(warpId) {
+    if (!db) return;
     try {
-        db.run("UPDATE Atlas_Warps SET FromNodeId=?, ToNodeId=? WHERE Id=?", [w.to, w.from, warpId]);
-        markUnsaved(); refreshWarpsOnly();
-        if (activeNode) renderConnectionsSection(activeNode);
+        flipWarpRaw(warpId);
+        pushUndo({ undo: () => flipWarpRaw(warpId), redo: () => flipWarpRaw(warpId) });
     } catch(e) {}
 }
 
-function toggleWarpOneWay(warpId) {
-    if (!db) return;
+function toggleWarpOneWayRaw(warpId) {
     const w = warps.find(w => w.id === warpId);
     if (!w) return;
+    db.run("UPDATE Atlas_Warps SET IsOneWay=? WHERE Id=?", [w.oneWay ? 0 : 1, warpId]);
+    markUnsaved(); refreshWarpsOnly();
+    if (activeNode) renderConnectionsSection(activeNode);
+}
+function toggleWarpOneWay(warpId) {
+    if (!db) return;
     try {
-        db.run("UPDATE Atlas_Warps SET IsOneWay=? WHERE Id=?", [w.oneWay ? 0 : 1, warpId]);
-        markUnsaved(); refreshWarpsOnly();
-        if (activeNode) renderConnectionsSection(activeNode);
+        toggleWarpOneWayRaw(warpId);
+        pushUndo({ undo: () => toggleWarpOneWayRaw(warpId), redo: () => toggleWarpOneWayRaw(warpId) });
     } catch(e) {}
 }
 

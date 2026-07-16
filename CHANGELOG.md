@@ -1,7 +1,38 @@
 # Changelog
 
-Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Trenutna verzija je vidna tudi
-v aplikaciji zgoraj levo (klikni nanjo za isti seznam znotraj UI-ja).
+Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Isti seznam je viden tudi
+znotraj aplikacije: `H` (Help) → link poleg naslova.
+
+## v9.0.11 — 2026-07-12
+
+- Iskanje sanj je zgrešilo ujemanja, kadar se je iskalna beseda v besedilu
+  pojavila z veliko začetnico (npr. "Čas" na začetku stavka, iskalni izraz
+  "čas") — SQLite-ov vgrajeni LOWER() folda samo ASCII, šumnike (č/š/ž) pusti
+  nespremenjene. Ujemanje je zdaj v celoti prestavljeno v JS (isti regex
+  pristop, ki ga Timeline že uporablja), kjer .toLowerCase() šumnike pravilno
+  obravnava. Popravljeno v vseh štirih mestih, ki so prej gradila SQL WHERE z
+  LOWER()/LIKE: štetje sanj na node, seznam sanj v Master View (2 mesti), in
+  ročno iskanje sanj za pripenjanje.
+
+## v9.0.10 — 2026-07-10
+
+- saveSearchTerms() ni osvežil frekvenčnega predpomnilnika (barva mehurčka po
+  pogostosti) ob shranjevanju — ostal je zastarel do naslednjega nepovezanega
+  refresha. Nov refreshNodeFreq() naredi ciljan recompute samo za ta node
+  (freqMax in barve vseh preostalih se preračunajo iz že predpomnjenih
+  count-ov, brez dodatnih SQL klicev).
+- saveNodeEdits() (samo ime/tip) je po nepotrebnem klical poln refreshData()
+  — enak razred nepotrebnega dela kot warp fix v 9.0.6, samo ni bil pokrit.
+  Zdaj osveži samo tisto, kar je dejansko odvisno od imena (warp dropdowni,
+  insights, timeline).
+- flipWarp() in toggleWarpOneWay() zdaj podpirata undo/redo (create/delete
+  warpa sta ga že imela, direction-toggle ne).
+- Dodana startup diagnostika (console.warn), ki opozori, če sl.js in en.js
+  nimata popolnoma istega nabora ključev — brez tega manjkajoč ključ tiho
+  pade nazaj na goli ključ namesto berljivega besedila.
+- Ime aplikacijske datoteke je zdaj stabilno (`orbis.html`, ne več
+  `orbis_vX_Y_Z.html`) — `vercel.json` je posodobljen enkrat za vselej in se
+  mu odslej ni več treba ročno slediti ob vsakem version bumpu.
 
 ## v9.0.9 — 2026-07-09
 

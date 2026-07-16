@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/orbis_v9.0.9.html"
+      "destination": "/orbis.html"
     }
   ],
   "headers": [
