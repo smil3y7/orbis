@@ -3,6 +3,40 @@
 Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Isti seznam je viden tudi
 znotraj aplikacije: `H` (Help) → link poleg naslova.
 
+## v9.0.14 — 2026-07-21
+
+- Megla se zdaj ob kreiranju nove lokacije animirano razkrije (ease-out,
+  ~1.1s) namesto da se luknja pojavi takoj v polni velikosti — "razpoka v
+  megli", ki se širi navzven od nove lokacije.
+- Razpon radija luknje glede na Stability razširjen iz 89–170px na 60–240px
+  — padec stabilnosti (Pozabljanje) se zdaj vidno pozna: megla dejansko
+  "pogoltne" zanemarjeno lokacijo nazaj, namesto da se luknja samo rahlo
+  skrči.
+- Vseh 9 mest, ki so prej uporabljala blokirajoč native alert(), zdaj
+  uporablja obstoječi, neblokirajoč toast sistem.
+
+## v9.0.13 — 2026-07-20
+
+- Po popravku pozicije megle (9.0.12) je bila megla še vedno praktično
+  nevidna: risala je čisto črno (#000), ozadje strani pa je --bg:#050506 —
+  razlika samo 5 stopničk sivine, neopazno na katerem koli zaslonu. Megla je
+  zdaj polprosojna siva (rgba(32,34,40,0.82)), ki dejansko vidno kontrastira
+  z ozadjem. Mehanika "luknja se reže okoli vsakega noda" (torej manj megle z
+  vsakim dodanim nodom) je ostala nespremenjena — obstajala je že prej, samo
+  ni je bilo mogoče videti.
+
+## v9.0.12 — 2026-07-20
+
+- Klik na "Megla" v Layer kontrolniku je preklopil stanje, a se vizualno ni
+  nič spremenilo. Vzrok: drawFog() je črn pravokotnik vedno risala pri
+  SVETOVNEM izhodišču (0,0), ne glede na to, kam je kamera dejansko poravnana
+  (camX/camY) — dokler je bil Home node zaradi starega centerHomeNode()
+  bug-a (glej 9.0.9) vedno prisiljen na canvas.width/2, je bila kamera po
+  resetu vedno na (0,0), kar je to napako po naključju skrilo. Po popravku
+  Home pozicije v 9.0.9 je camera pan skoraj vedno neničeln, zato je megla
+  "izginila" — v resnici je bila samo narisana izven vidnega izreza. drawFog
+  zdaj upošteva camX/camY in pravilno pokrije dejansko viden del karte.
+
 ## v9.0.11 — 2026-07-12
 
 - Iskanje sanj je zgrešilo ujemanja, kadar se je iskalna beseda v besedilu

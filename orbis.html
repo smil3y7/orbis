@@ -912,8 +912,45 @@ function setLang(lang) {
 //  prevodih (app.subtitle) — zato se je pri bumpu skoraj vedno kje pozabila
 //  posodobiti. Zdaj: spremeni APP_VERSION spodaj, dodaj vnos v CHANGELOG, konec.
 // ─────────────────────────────────────────────
-const APP_VERSION = '9.0.11';
+const APP_VERSION = '9.0.14';
 const CHANGELOG = [
+    {
+        version: '9.0.14', date: '2026-07-21',
+        notes: {
+            sl: [
+                'Megla se zdaj ob kreiranju nove lokacije animirano razkrije (ease-out, ~1.1s) namesto da se luknja pojavi takoj v polni velikosti — "razpoka v megli", ki se širi navzven od nove lokacije.',
+                'Razpon radija luknje glede na Stability razširjen iz 89–170px na 60–240px — padec stabilnosti (Pozabljanje) se zdaj vidno pozna: megla dejansko "pogoltne" zanemarjeno lokacijo nazaj, namesto da se luknja samo rahlo skrči.',
+                'Vseh 9 mest, ki so prej uporabljala blokirajoč native alert(), zdaj uporablja obstoječi, neblokirajoč toast sistem (isti, ki se je prej uporabljal samo za "warp link cancelled").',
+            ],
+            en: [
+                'Fog now animates open when a new location is created (ease-out, ~1.1s) instead of the hole appearing instantly at full size — a "crack in the fog" spreading outward from the new location.',
+                'The hole-radius range based on Stability was widened from 89–170px to 60–240px — a drop in stability (Forgetting) now visibly matters: the fog actually "swallows" a neglected location back, instead of the hole just shrinking slightly.',
+                'All 9 spots that used to call the blocking native alert() now use the existing, non-blocking toast system (the same one previously only used for "warp link cancelled").',
+            ],
+        }
+    },
+    {
+        version: '9.0.13', date: '2026-07-20',
+        notes: {
+            sl: [
+                'Po popravku pozicije megle (9.0.12) je bila megla še vedno praktično nevidna: risala je čisto črno (#000), ozadje strani pa je --bg:#050506 — razlika samo 5 stopničk sivine, neopazno na katerem koli zaslonu. Megla je zdaj polprosojna siva (rgba(32,34,40,0.82)), ki dejansko vidno kontrastira z ozadjem. Mehanika "luknja se reže okoli vsakega noda" (torej manj megle z vsakim dodanim nodom) je ostala nespremenjena — obstajala je že prej, samo ni je bilo mogoče videti.',
+            ],
+            en: [
+                'After fixing the fog\'s position (9.0.12), it was still practically invisible: it drew pure black (#000) against a --bg:#050506 page background — a difference of just 5 shades of grey, imperceptible on any display. Fog is now a semi-transparent grey (rgba(32,34,40,0.82)) that actually contrasts against the background. The "a hole is cut around every node" mechanic (so fog visibly recedes as you add nodes) is unchanged — it already existed, it just couldn\'t be seen.',
+            ],
+        }
+    },
+    {
+        version: '9.0.12', date: '2026-07-20',
+        notes: {
+            sl: [
+                'Klik na "Megla" v Layer kontrolniku je preklopil stanje, a se vizualno ni nič spremenilo. Vzrok: drawFog() je črn pravokotnik vedno risala pri SVETOVNEM izhodišču (0,0), ne glede na to, kam je kamera dejansko poravnana (camX/camY) — dokler je bil Home node zaradi starega centerHomeNode() bug-a (glej 9.0.9) vedno prisiljen na canvas.width/2, je bila kamera po resetu vedno na (0,0), kar je to napako po naključju skrilo. Po popravku Home pozicije v 9.0.9 je camera pan skoraj vedno neničeln, zato je megla "izginila" — v resnici je bila samo narisana izven vidnega izreza. drawFog zdaj upošteva camX/camY in pravilno pokrije dejansko viden del karte.',
+            ],
+            en: [
+                'Clicking "Fog" in the layer controls toggled the state, but nothing visibly changed. Cause: drawFog() always drew its black rectangle at the WORLD origin (0,0), regardless of where the camera actually was (camX/camY) — as long as the old centerHomeNode() bug (see 9.0.9) forced the Home node to canvas.width/2 every frame, the camera after a reset always ended up at (0,0), which coincidentally hid this bug. After fixing Home\'s position in 9.0.9, the camera pan is almost never zero, so the fog effectively "disappeared" — it was just being drawn outside the visible viewport. drawFog now accounts for camX/camY and correctly covers the actually visible part of the map.',
+            ],
+        }
+    },
     {
         version: '9.0.11', date: '2026-07-12',
         notes: {
@@ -2034,13 +2071,41 @@ window.addEventListener('resize', resizeCanvas);
 //  RENDER — posamezne funkcije po slojih
 // ─────────────────────────────────────────────
 
-function drawFog(W, H) {
+let nodeRevealStart = new Map(); // nodeId -> performance.now() ob kreiranju, za fog reveal animacijo
+const FOG_REVEAL_MS = 1100;
+
+function drawFog(worldX, worldY, W, H) {
     ctx.save();
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, W, H);
+    // BUGFIX (vidljivost): prej čista neprosojna '#000' — na ozadju --bg:#050506
+    // (skoraj čista črna) je bila razlika 5 stopničk sivine, kar je bilo v praksi
+    // nevidno ne glede na to, ali je bila megla pravilno pozicionirana ali ne
+    // (glej 9.0.12 fix pozicije). Polprosojna siva dejansko kontrastira z ozadjem
+    // in reže vidljive "luknje" okoli vsakega noda (glej gradient spodaj — njegova
+    // barva je nepomembna za destination-out, šteje samo njegova alpha).
+    ctx.fillStyle = 'rgba(32,34,40,0.82)';
+    ctx.fillRect(worldX, worldY, W, H);
     ctx.globalCompositeOperation = 'destination-out';
+    const now = performance.now();
     nodes.forEach(n => {
-        const radius = 80 + (n.stability || 1) * 9;
+        // Razpon 60–240px namesto prejšnjega 89–170px — padec stabilnosti (Pozabljanje)
+        // se zdaj pozna veliko bolj dramatično: megla vidno "pogoltne" zanemarjeno
+        // lokacijo nazaj, namesto da se luknja samo rahlo skrči.
+        const fullRadius = 40 + (n.stability || 1) * 20;
+        let radius = fullRadius;
+        // Ob kreiranju noda (glej uiCreateNode) se luknja animirano širi navzven
+        // namesto da se pojavi takoj v polni velikosti — "razpoka v megli".
+        const revealStart = nodeRevealStart.get(n.id);
+        if (revealStart !== undefined) {
+            const elapsed = now - revealStart;
+            if (elapsed < FOG_REVEAL_MS) {
+                const p = elapsed / FOG_REVEAL_MS;
+                const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+                radius = fullRadius * eased;
+            } else {
+                nodeRevealStart.delete(n.id); // animacija končana, ni več treba preverjati vsak frame
+            }
+        }
+        if (radius <= 0) return;
         const grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, radius);
         grd.addColorStop(0, 'rgba(0,0,0,1)');
         grd.addColorStop(0.5, 'rgba(0,0,0,0.85)');
@@ -2382,7 +2447,7 @@ function animate(ts) {
     ctx.save();
     ctx.setTransform(camScale, 0, 0, camScale, camX, camY);
 
-    if (layers.fog)    drawFog(W / camScale, H / camScale);
+    if (layers.fog)    drawFog(-camX / camScale, -camY / camScale, W / camScale, H / camScale);
     if (layers.groups) drawGroups();
     if (layers.warps)  drawWarps();
     drawWarpLinkPreview();
@@ -3336,7 +3401,7 @@ function saveNodeEdits() {
                 if (activeNode?.id === targetNode.id) openMasterView(targetNode);
             }
         });
-    } catch(e) { alert('Napaka: ' + e.message); }
+    } catch(e) { showToast('Napaka: ' + e.message, true); }
 }
 
 // ─────────────────────────────────────────────
@@ -3351,7 +3416,7 @@ function saveParent(val) {
     if (newParentId !== null) {
         const candidate = nodes.find(n => n.id === newParentId);
         if (candidate && candidate.parentId) {
-            alert(t('node.error_deep_hierarchy'));
+            showToast(t('node.error_deep_hierarchy'), true);
             // Ponastavi select
             document.getElementById('mv-parent-select').value = activeNode.parentId || '';
             return;
@@ -3415,7 +3480,7 @@ function setHomeNode() {
         refreshData();
         // Osveži Master View da pokaže novo stanje
         openMasterView(activeNode);
-    } catch(e) { alert('Napaka: ' + e.message); }
+    } catch(e) { showToast('Napaka: ' + e.message, true); }
 }
 
 
@@ -4025,6 +4090,7 @@ function uiCreateNode() {
         if (!last.length) return;
         const newId = last[0].values[0][0];
         flashNodeId = newId;
+        nodeRevealStart.set(newId, performance.now());
         setTimeout(() => { flashNodeId = null; }, 600);
         pushUndo({
             undo: () => {
@@ -4036,10 +4102,11 @@ function uiCreateNode() {
             redo: () => {
                 db.run("INSERT INTO Atlas_Nodes (Id, Name, Stability, X, Y, Type, IsHome, ParentId) VALUES (?,?,?,?,?,?,0,NULL)",
                     [newId, name, 10, x, y, type]);
+                nodeRevealStart.set(newId, performance.now());
                 markUnsaved(); refreshData();
             }
         });
-    } catch(e) { alert(t('node.error_create') + e.message); }
+    } catch(e) { showToast(t('node.error_create') + e.message, true); }
 }
 
 function deleteCurrentNode() {
@@ -4075,7 +4142,7 @@ function deleteCurrentNode() {
                 markUnsaved(); refreshData();
             }
         });
-    } catch(e) { alert(t('node.error_delete') + e.message); }
+    } catch(e) { showToast(t('node.error_delete') + e.message, true); }
 }
 
 // Skupna, preverjena logika za ustvarjanje warpa — uporablja jo tako uiCreateWarp()
@@ -4109,7 +4176,7 @@ function uiCreateWarp() {
     if (!db) return;
     // BUGFIX: prej se je preverjalo samo "nodes.length < 2" in preprosto tiho
     // vrnilo — brez sporočila uporabniku, videti je bilo kot da gumb ne dela.
-    if (nodes.length < 2) { alert(t('warp.error_too_few_nodes')); return; }
+    if (nodes.length < 2) { showToast(t('warp.error_too_few_nodes'), true); return; }
 
     const fromSel = document.getElementById('warp-from');
     const toSel = document.getElementById('warp-to');
@@ -4121,13 +4188,13 @@ function uiCreateWarp() {
     // nikoli ni izrisal (drawWarps ga je preskočil, ker nodeMap.get(NaN) vrne
     // undefined) — to je bil glavni vzrok, da warpi "niso delovali".
     if (!fromSel.value || !toSel.value || isNaN(fromId) || isNaN(toId) || !nodeMap.has(fromId) || !nodeMap.has(toId)) {
-        alert(t('warp.error_no_selection'));
+        showToast(t('warp.error_no_selection'), true);
         return;
     }
     const oneWay = document.getElementById('warp-oneway').checked;
     const result = createWarpBetween(fromId, toId, oneWay);
     if (!result.success) {
-        alert(t(result.errorKey) + (result.errorExtra || ''));
+        showToast(t(result.errorKey) + (result.errorExtra || ''), true);
         return;
     }
     clearSearch('warp-search-from', 'clearWarpFrom', () => filterWarpSelect('warp-from', ''));
@@ -4210,7 +4277,7 @@ function closePanel(id) {
 }
 
 function exportDB() {
-    if (!db) { alert(t('export.no_db')); return; }
+    if (!db) { showToast(t('export.no_db'), true); return; }
     const data = db.export();
     const blob = new Blob([data], { type: 'application/octet-stream' });
     const a = document.createElement('a');
