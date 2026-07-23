@@ -912,8 +912,19 @@ function setLang(lang) {
 //  prevodih (app.subtitle) — zato se je pri bumpu skoraj vedno kje pozabila
 //  posodobiti. Zdaj: spremeni APP_VERSION spodaj, dodaj vnos v CHANGELOG, konec.
 // ─────────────────────────────────────────────
-const APP_VERSION = '9.0.14';
+const APP_VERSION = '9.0.15';
 const CHANGELOG = [
+    {
+        version: '9.0.15', date: '2026-07-22',
+        notes: {
+            sl: [
+                'Prehod iz manjšega v veliko okno (npr. pol zaslona → cel zaslon) je Home poslal daleč izven vidnega izreza — kamero je bilo treba ročno ponastaviti (0 ali Home gumb). Vzrok: resize-kompenzacija kamere je imela obrnjen predznak formule ((staraW − novaW) namesto (novaW − staraW)), zato je kamero ob VSAKI spremembi velikosti premikala v nasprotno smer, namesto da bi ohranila center. Dokler je stari centerHomeNode() bug (glej 9.0.9) vsak frame silil Home na canvas.width/2, je to napako prikrival — po popravku Home pozicije je bila v celoti izpostavljena. Preverjeno z zaporednimi spremembami velikosti (rast/krčenje): center zdaj ostane natančno poravnan pri vsakem koraku.',
+            ],
+            en: [
+                'Going from a smaller to a much larger window (e.g. half screen → full screen) sent Home far outside the visible viewport — the camera had to be manually reset (0 or the Home button). Cause: the resize camera-compensation had an inverted sign in its formula ((oldW − newW) instead of (newW − oldW)), so it moved the camera in the WRONG direction on every resize instead of keeping the view centered. As long as the old centerHomeNode() bug (see 9.0.9) forced Home to canvas.width/2 every frame, it masked this bug — after fixing Home\'s position it was fully exposed. Verified across a sequence of resizes (growing/shrinking): the center now stays exactly aligned at every step.',
+            ],
+        }
+    },
     {
         version: '9.0.14', date: '2026-07-21',
         notes: {
@@ -2047,9 +2058,18 @@ function resizeCanvas() {
     // Kompenzacija ob spremembi velikosti okna/sidebar-ja, da kamera ostane vizualno
     // stabilna — ohrani trenutno gledano svetovno točko na istem mestu na zaslonu,
     // ne glede na to, kateri node (če sploh kateri) je ravno tam.
+    // BUGFIX: formula je imela obrnjen predznak — (staraW - novaW) namesto
+    // (novaW - staraW) — kar je kamero ob VSAKI spremembi velikosti premaknilo v
+    // NASPROTNO smer namesto da bi ohranilo center. Dokler je stari centerHomeNode()
+    // bug (glej 9.0.9) vsak frame silil Home na canvas.width/2, je to napako
+    // prikrival (Home je "sledil" novi velikosti ne glede na kamero) — po popravku
+    // Home pozicije je bila napaka popolnoma izpostavljena: prehod iz manjšega v
+    // veliko okno (npr. pol zaslona → cel zaslon) je Home poslal daleč izven vidnega
+    // izreza, dokler nisi ročno pritisnil 0 / kliknil Home gumb (kar pokliče
+    // resetCamera(), ki kamero postavi na novo, pravilno).
     if (canvasSized) {
-        camX += camScale * (canvas.width - newW) / 2;
-        camY += camScale * (canvas.height - newH) / 2;
+        camX += camScale * (newW - canvas.width) / 2;
+        camY += camScale * (newH - canvas.height) / 2;
     }
     canvas.width = newW;
     canvas.height = newH;

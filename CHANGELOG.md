@@ -3,6 +3,19 @@
 Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Isti seznam je viden tudi
 znotraj aplikacije: `H` (Help) → link poleg naslova.
 
+## v9.0.15 — 2026-07-22
+
+- Prehod iz manjšega v veliko okno (npr. pol zaslona → cel zaslon) je Home
+  poslal daleč izven vidnega izreza — kamero je bilo treba ročno ponastaviti
+  (0 ali Home gumb). Vzrok: resize-kompenzacija kamere je imela obrnjen
+  predznak formule ((staraW − novaW) namesto (novaW − staraW)), zato je
+  kamero ob VSAKI spremembi velikosti premikala v nasprotno smer, namesto da
+  bi ohranila center. Dokler je stari centerHomeNode() bug (glej 9.0.9) vsak
+  frame silil Home na canvas.width/2, je to napako prikrival — po popravku
+  Home pozicije je bila v celoti izpostavljena. Preverjeno z zaporednimi
+  spremembami velikosti (rast/krčenje): center zdaj ostane natančno poravnan
+  pri vsakem koraku.
+
 ## v9.0.14 — 2026-07-21
 
 - Megla se zdaj ob kreiranju nove lokacije animirano razkrije (ease-out,
