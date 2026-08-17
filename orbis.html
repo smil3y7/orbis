@@ -912,8 +912,19 @@ function setLang(lang) {
 //  prevodih (app.subtitle) — zato se je pri bumpu skoraj vedno kje pozabila
 //  posodobiti. Zdaj: spremeni APP_VERSION spodaj, dodaj vnos v CHANGELOG, konec.
 // ─────────────────────────────────────────────
-const APP_VERSION = '9.0.15';
+const APP_VERSION = '9.0.16';
 const CHANGELOG = [
+    {
+        version: '9.0.16', date: '2026-07-23',
+        notes: {
+            sl: [
+                'Našla sva še dva primera istega vzorca kot pri centerHomeNode()/resize bugih (glej 9.0.9/9.0.15) — svetovna pozicija vezana na trenutno velikost/kamero zaslona namesto na dejansko svetovno koordinato: (1) setHomeNode() je novo izbrani Home node premaknil na canvas.width/2 — poleg tega je bila ta sprememba tudi neučinkovita, ker jo je takoj povozil naslednji refreshData() (ki bere pravo, nespremenjeno pozicijo iz baze). Node zdaj obdrži svojo pravo pozicijo, kamera pa se po refreshData() pravilno centrira nanjo prek resetCamera(). (2) uiCreateNode() je naključno pozicijo za nov node generiral v zaslonskih pikslih in jo neposredno zapisal kot svetovno koordinato — nov node je pristal na mestu, odvisnem od velikosti okna, ne od tega, kam uporabnik dejansko gleda na karti (pan/zoom). Zdaj se zaslonska točka pravilno pretvori v svetovno prek trenutne kamere.',
+            ],
+            en: [
+                'Found two more instances of the same pattern as the centerHomeNode()/resize bugs (see 9.0.9/9.0.15) — a world position tied to the current screen size/camera instead of an actual world coordinate: (1) setHomeNode() moved the newly-chosen Home node to canvas.width/2 — and that change was also ineffective anyway, since the following refreshData() immediately overwrote it with the real, unchanged position from the database. The node now keeps its real position, and the camera correctly centers on it via resetCamera() after refreshData(). (2) uiCreateNode() generated a new node\'s random position in screen pixels and wrote it directly as a world coordinate — a new node landed at a spot depending on window size, not on where the user was actually looking on the map (pan/zoom). The screen point is now correctly converted to world space through the current camera.',
+            ],
+        }
+    },
     {
         version: '9.0.15', date: '2026-07-22',
         notes: {
@@ -3491,13 +3502,15 @@ function setHomeNode() {
         const n = nodeMap.get(activeNode.id);
         if (n) { n.isHome = true; n.parentId = null; }
 
-        // Postavi na sredino canvasa takoj
-        activeNode.x = canvas.width / 2;
-        activeNode.y = canvas.height / 2;
-        if (n) { n.x = activeNode.x; n.y = activeNode.y; }
-
+        // BUGFIX: to je bil isti anti-vzorec kot stari centerHomeNode() bug (glej
+        // 9.0.9) — svetovna pozicija noda se ne sme vezati na trenutno velikost
+        // zaslona. Dodatno je bila ta sprememba tudi neučinkovita: naslednji
+        // refreshData() bere X/Y iz baze (kamor pozicija ni bila zapisana), zato
+        // je takoj povozil to "sredinsko" pozicijo z izvirno. Namen — da je nov
+        // Home viden na sredini po izbiri — dosežemo pravilno prek kamere.
         markUnsaved();
         refreshData();
+        resetCamera(); // poravna kamero na novo Home pozicijo (njeno pravo X/Y iz baze)
         // Osveži Master View da pokaže novo stanje
         openMasterView(activeNode);
     } catch(e) { showToast('Napaka: ' + e.message, true); }
@@ -4099,8 +4112,17 @@ function uiCreateNode() {
     if (!db) return;
     const name = document.getElementById('node-name').value.trim() || t('node.default_name');
     const type = document.getElementById('node-type').value;
-    const x = 80 + Math.random() * (canvas.width - 160);
-    const y = 80 + Math.random() * (canvas.height - 160);
+    // BUGFIX: prej je bila naključna pozicija generirana v ZASLONSKIH pikslih
+    // (0..canvas.width) in zapisana neposredno kot SVETOVNA koordinata — isti
+    // razred napake kot stari centerHomeNode()/resize bug (glej 9.0.9/9.0.15).
+    // Nov node je zato pristal na mestu, odvisnem od trenutne velikosti okna,
+    // ne od tega, kam uporabnik dejansko gleda (pan/zoom). Zdaj se zaslonska
+    // točka pretvori v svetovno prek trenutne kamere, tako da nov node vedno
+    // pristane nekje znotraj trenutno VIDNEGA dela karte.
+    const screenX = 80 + Math.random() * (canvas.width - 160);
+    const screenY = 80 + Math.random() * (canvas.height - 160);
+    const x = (screenX - camX) / camScale;
+    const y = (screenY - camY) / camScale;
     try {
         db.run("INSERT INTO Atlas_Nodes (Name, Stability, X, Y, Type, IsHome, ParentId) VALUES (?,?,?,?,?,0,NULL)",
                [name, 10, x, y, type]);

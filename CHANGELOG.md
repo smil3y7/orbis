@@ -3,6 +3,22 @@
 Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Isti seznam je viden tudi
 znotraj aplikacije: `H` (Help) → link poleg naslova.
 
+## v9.0.16 — 2026-07-23
+
+- Našla sva še dva primera istega vzorca kot pri centerHomeNode()/resize
+  bugih (glej 9.0.9/9.0.15) — svetovna pozicija vezana na trenutno
+  velikost/kamero zaslona namesto na dejansko svetovno koordinato:
+  (1) setHomeNode() je novo izbrani Home node premaknil na canvas.width/2 —
+  poleg tega je bila ta sprememba tudi neučinkovita, ker jo je takoj povozil
+  naslednji refreshData() (ki bere pravo, nespremenjeno pozicijo iz baze).
+  Node zdaj obdrži svojo pravo pozicijo, kamera pa se po refreshData()
+  pravilno centrira nanjo prek resetCamera().
+  (2) uiCreateNode() je naključno pozicijo za nov node generiral v
+  zaslonskih pikslih in jo neposredno zapisal kot svetovno koordinato — nov
+  node je pristal na mestu, odvisnem od velikosti okna, ne od tega, kam
+  uporabnik dejansko gleda na karti (pan/zoom). Zdaj se zaslonska točka
+  pravilno pretvori v svetovno prek trenutne kamere.
+
 ## v9.0.15 — 2026-07-22
 
 - Prehod iz manjšega v veliko okno (npr. pol zaslona → cel zaslon) je Home
