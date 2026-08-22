@@ -3,6 +3,14 @@
 Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Isti seznam je viden tudi
 znotraj aplikacije: `H` (Help) → link poleg naslova.
 
+## v9.0.17 — 2026-08-15
+
+- Dodan favicon (SVG, vgrajen kot data URI — brez dodatnih datotek, skladno
+  z "eno HTML datoteko" pristopom) in apple-touch-icon (PNG, 180×180) za
+  lepši prikaz ob shranjevanju na domači zaslon iOS naprav. Oblikovan v
+  skladu z obstoječo estetiko: temno ozadje, zlat Home v sredini z obročem,
+  dva cyan satelitska mehurčka.
+
 ## v9.0.16 — 2026-07-23
 
 - Našla sva še dva primera istega vzorca kot pri centerHomeNode()/resize
