@@ -3,6 +3,8 @@ window.LANG_SL = {
     // ── Aplikacija ───────────────────────────────────────
     'app.subtitle': 'SINGULARITY',
     'changelog.title': 'Changelog',
+    'confirm.cancel': 'Prekliči',
+    'confirm.ok': 'Potrdi',
 
     // ── Baza ─────────────────────────────────────────────
     'db.title': 'Naloži Bazo',
@@ -84,12 +86,16 @@ window.LANG_SL = {
     'mv.delete': 'Izbriši',
     'mv.stability.label': 'Stabilnost',
     'mv.type.personal': 'Osebna',
+    'mv.home_badge': 'DOM',
     'mv.type.archetype': 'Arhetip',
     'mv.type.dreamsign': 'Dream Sign',
     'mv.stat.dreams': 'Sanje',
     'mv.stat.stability': 'Stabilnost',
     'mv.stat.warps': 'Warpi',
     'mv.connections.title': 'Povezave / Warpi',
+    'mv.connections.filter_placeholder': 'Filtriraj povezave...',
+    'mv.connections.show_all': 'Prikaži vse',
+    'mv.connections.show_less': 'Prikaži manj',
     'mv.children.title': 'Podlokacije',
     'mv.dreams.counter.total': 'sanj',
     'mv.dreams.counter.filtered': 'zadetkov',
@@ -116,6 +122,8 @@ window.LANG_SL = {
     'mv.pin.search.placeholder': 'Datum ali del besedila...',
     'mv.set_home': 'Označi kot Dom',
     'mv.set_home_hint': 'Nastavi to lokacijo kot središče karte',
+    'mv.details.hint': 'Podrobnosti (skupina, iskalni izrazi, opombe)',
+    'mv.details.title': 'PODROBNOSTI',
 
     // ── Insights panel ───────────────────────────────────
     'insights.no_db': 'Naloži bazo za prikaz insights.',

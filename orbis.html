@@ -92,22 +92,16 @@
         }
         #mv-body { flex: 1; overflow-y: auto; padding: 14px 18px 20px; }
 
-        #mv-edit-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
-        #mv-name-input {
+        #mv-name-edit {
             flex: 1; background: transparent; border: none; border-bottom: 1px solid #2a2a2a;
             color: white; font-size: 1.1em; font-weight: 600; padding: 2px 4px;
             outline: none; border-radius: 0; margin: 0; transition: border-color 0.2s;
         }
-        #mv-name-input:focus { border-bottom-color: var(--accent); }
-        #mv-type-select {
+        #mv-name-edit:focus { border-bottom-color: var(--accent); }
+        #mv-type-edit {
             background: #0a0a0c; border: 1px solid #2a2a2a; color: var(--text);
             font-size: 0.7em; padding: 4px 6px; border-radius: 4px;
             width: auto; margin: 0; flex-shrink: 0;
-        }
-        #mv-save-btn {
-            background: var(--accent); color: #000; border: none; border-radius: 4px;
-            padding: 4px 10px; font-size: 0.7em; font-weight: 800; cursor: pointer;
-            width: auto; margin: 0; display: none;
         }
 
         /* Parent selector row */
@@ -166,6 +160,20 @@
 
         .mv-section { margin-bottom: 14px; }
         .mv-section-title { font-size: 0.7em; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 8px; }
+
+        /* Inline-edit vzorec (klik na prikaz -> input/select, blur/Enter -> shrani) */
+        .mv-inline-display:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+        .mv-inline-edit { border-radius: 5px; border: 1px solid var(--accent); background: #0d0e10; color: var(--text); outline: none; }
+
+        /* Vrstica povezave (warp) — akcijski gumbi vidni šele ob hover-u, da dolg
+           seznam ne izgleda natrpano z gumbi na vsaki vrstici hkrati. */
+        .mv-conn-row { font-size: 0.78em; padding: 5px 0; border-bottom: 1px solid #1a1a1a; }
+        .mv-conn-row-inner { display: flex; justify-content: space-between; align-items: center; }
+        .mv-conn-actions { display: flex; gap: 6px; align-items: center; opacity: 0; transition: opacity 0.15s; }
+        .mv-conn-row:hover .mv-conn-actions,
+        .mv-conn-row:focus-within .mv-conn-actions { opacity: 1; }
+        .mv-conn-show-all { font-size: 0.75em; color: var(--muted); cursor: pointer; padding: 6px 0 0; text-align: center; }
+        .mv-conn-show-all:hover { color: var(--accent); }
 
         .mv-dream-entry {
             background: #0d0e10; border: 1px solid #1f2833; border-radius: 8px;
@@ -528,23 +536,30 @@
         <div id="mv-header">
             <!-- Header gumbi -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div style="display:flex; gap:6px;">
-                    <button id="mv-view-tab" onclick="setMVMode('view')" class="btn-ghost active"
-                        style="font-size:0.72em; padding:3px 10px; width:auto; margin:0;" data-i18n="mv.tab.view">👁 Pregled</button>
-                    <button id="mv-edit-tab" onclick="setMVMode('edit')" class="btn-ghost"
-                        style="font-size:0.72em; padding:3px 10px; width:auto; margin:0;" data-i18n="mv.tab.edit">✏ Uredi</button>
-                </div>
+                <div id="mv-type-badge" class="mv-inline-display" onclick="startEditType()"
+                    style="font-size:0.65em; text-transform:uppercase; letter-spacing:1.5px; cursor:pointer;"></div>
+                <select id="mv-type-edit" class="mv-inline-edit" onblur="commitEditType()" onchange="commitEditType()"
+                    style="display:none; width:auto; margin:0; font-size:0.72em; padding:2px 6px;">
+                    <option value="Personal" data-i18n="mv.type.personal">Osebna</option>
+                    <option value="Archetype" data-i18n="mv.type.archetype">Arhetip</option>
+                    <option value="DreamSign" data-i18n="mv.type.dreamsign">Dream Sign</option>
+                </select>
                 <div style="display:flex; gap:6px;">
                     <button id="mv-home-btn" onclick="setHomeNode()" title="" style="width:auto; padding:3px 10px; margin:0; font-size:0.72em;">⌂</button>
+                    <button id="mv-details-btn" onclick="openDetailsModal()" title=""
+                        style="width:auto; padding:3px 9px; margin:0; font-size:0.85em; letter-spacing:1px;">⋯</button>
                     <button onclick="closePanel('master-view')"
                         style="width:26px; height:26px; border-radius:50%; padding:0; margin:0; font-size:0.8em;">✕</button>
                 </div>
             </div>
 
-            <!-- Node ime in tip — vedno vidno -->
+            <!-- Node ime — inline urejanje, klikni za preimenovanje -->
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                <div id="mv-type-badge" style="font-size:0.65em; text-transform:uppercase; letter-spacing:1.5px; flex-shrink:0;"></div>
-                <div id="mv-node-name-display" style="font-size:0.95em; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+                <div id="mv-node-name-display" class="mv-inline-display" onclick="startEditName()"
+                    style="font-size:0.95em; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; flex:1;"></div>
+                <input type="text" id="mv-name-edit" class="mv-inline-edit"
+                    onblur="commitEditName()" onkeydown="if(event.key==='Enter')this.blur(); else if(event.key==='Escape'){this.value=_nameEditPrev;this.blur();}"
+                    style="display:none; flex:1; margin:0; font-size:0.95em; font-weight:600; padding:2px 6px;">
                 <div id="mv-search-indicator" title="Iskalni izrazi nastavljeni" style="display:none; font-size:0.7em; color:var(--accent);">●</div>
                 <div id="mv-no-terms-indicator" title="Iskalni izrazi niso nastavljeni" style="display:none; font-size:0.7em; color:var(--warp);">●</div>
             </div>
@@ -552,8 +567,8 @@
             <div id="mv-stats" class="stat-row"></div>
         </div>
 
-        <!-- VIEW MOD -->
-        <div id="mv-view-mode" style="display:flex; flex-direction:column; flex:1; overflow:hidden; min-height:0;">
+        <!-- ENOTEN POGLED (brez Pregled/Uredi zavihkov) -->
+        <div style="display:flex; flex-direction:column; flex:1; overflow:hidden; min-height:0;">
             <!-- Children seznam -->
             <div id="mv-children" class="mv-section" style="display:none; margin-bottom:6px; padding:0 18px;">
                 <div class="mv-section-title" data-i18n="mv.children.title">Podlokacije</div>
@@ -563,6 +578,11 @@
             <!-- Warpi -->
             <div id="mv-connections" class="mv-section" style="display:none; padding:0 18px; margin-bottom:6px;">
                 <div class="mv-section-title" data-i18n="mv.connections.title">Povezave / Warpi</div>
+                <div id="mv-connections-filter-row" style="display:none; margin:4px 0 6px;">
+                    <input type="text" id="mv-connections-filter" data-i18n-placeholder="mv.connections.filter_placeholder"
+                        placeholder="Filtriraj povezave..." oninput="renderConnectionsSection(activeNode)"
+                        style="margin:0; font-size:0.75em; padding:4px 8px;">
+                </div>
                 <div id="mv-connections-list"></div>
             </div>
 
@@ -604,45 +624,26 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- EDIT MOD -->
-        <div id="mv-edit-mode" style="display:none; padding:0 18px 18px; overflow-y:auto; flex:1;">
-            <!-- Ime in tip -->
-            <div style="margin-bottom:10px;">
-                <label style="font-size:0.72em; color:var(--muted); display:block; margin-bottom:3px;" data-i18n="mv.name.label">Ime lokacije</label>
-                <div style="display:flex; gap:6px;">
-                    <input type="text" id="mv-name-input" oninput="onNodeEditChange()"
-                           onkeydown="if(event.key==='Enter') saveNodeEdits()"
-                           style="flex:1; margin:0;">
-                    <select id="mv-type-select" onchange="onNodeEditChange()" style="width:auto; margin:0;">
-                        <option value="Personal" data-i18n="mv.type.personal">Osebna</option>
-                        <option value="Archetype" data-i18n="mv.type.archetype">Arhetip</option>
-                        <option value="DreamSign" data-i18n="mv.type.dreamsign">Dream Sign</option>
-                    </select>
-                    <button id="mv-save-btn" onclick="saveNodeEdits()" style="width:auto; margin:0; padding:0 10px; display:none;">✓</button>
-                </div>
+    <!-- MASTER VIEW — PODROBNOSTI (skupina, iskalni izrazi, opombe, brisanje) -->
+    <div id="mv-details-modal" onclick="if(event.target===this)closeDetailsModal()" style="display:none;">
+        <div id="mv-details-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:0.85em; color:var(--accent); letter-spacing:1px;" data-i18n="mv.details.title">PODROBNOSTI</h3>
+                <button onclick="closeDetailsModal()" style="width:24px; height:24px; border-radius:50%; padding:0; margin:0; font-size:0.8em;">✕</button>
             </div>
 
             <!-- Parent -->
-            <div id="mv-parent-row" style="margin-bottom:10px;">
+            <div id="mv-parent-row" style="margin-bottom:12px;">
                 <label style="font-size:0.72em; color:var(--muted); display:block; margin-bottom:3px;" data-i18n="mv.parent.label">Skupina (parent)</label>
                 <select id="mv-parent-select" onchange="saveParent(this.value)" style="margin:0;">
                     <option value="" data-i18n="mv.parent.none">— brez skupne —</option>
                 </select>
             </div>
 
-            <!-- Stabilnost -->
-            <div id="mv-stability-row" style="margin-bottom:10px;">
-                <label style="font-size:0.72em; color:var(--muted); display:block; margin-bottom:3px;" data-i18n="mv.stability.label">Stabilnost</label>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="range" id="mv-stability-slider" min="1" max="10" step="0.5" style="flex:1; margin:0;"
-                           oninput="onStabilityChange(this.value)" onchange="saveStability(this.value)">
-                    <span id="mv-stability-val" style="font-family:'JetBrains Mono',monospace; font-size:0.85em; min-width:24px; text-align:right;">10</span>
-                </div>
-            </div>
-
             <!-- Iskalni izrazi -->
-            <div style="margin-bottom:10px;">
+            <div style="margin-bottom:12px;">
                 <label style="font-size:0.72em; color:var(--muted); display:block; margin-bottom:3px;">
                     <span data-i18n="mv.terms.label">Iskalni izrazi</span> <span style="color:#555; font-size:0.9em;" data-i18n="mv.terms.hint">— ločeni z vejico</span>
                 </label>
@@ -658,7 +659,7 @@
             </div>
 
             <!-- Opombe -->
-            <div style="margin-bottom:12px;">
+            <div style="margin-bottom:14px;">
                 <label style="font-size:0.72em; color:var(--muted); display:block; margin-bottom:3px;" data-i18n="mv.notes.label">Opombe</label>
                 <textarea id="mv-notes" rows="3"
                     style="width:100%; margin:0; font-size:0.82em; resize:vertical; min-height:60px; box-sizing:border-box;"
@@ -834,6 +835,19 @@
         </div>
     </div>
 </div>
+<div id="confirm-modal" onclick="if(event.target===this)resolveConfirm(false)"
+    style="display:none; position:fixed; inset:0; background:rgba(5,5,6,0.6); z-index:600; align-items:center; justify-content:center; backdrop-filter:blur(2px);">
+    <div style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px 22px;
+        max-width:340px; width:90%; box-shadow:0 12px 48px rgba(0,0,0,0.7);">
+        <div id="confirm-modal-msg" style="font-size:0.85em; color:var(--text); line-height:1.55; margin-bottom:18px;"></div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button onclick="resolveConfirm(false)" data-i18n="confirm.cancel"
+                style="width:auto; margin:0; padding:6px 14px; background:none; border:1px solid var(--border); color:var(--muted);">Prekliči</button>
+            <button id="confirm-modal-ok" onclick="resolveConfirm(true)" data-i18n="confirm.ok"
+                style="width:auto; margin:0; padding:6px 14px;">Potrdi</button>
+        </div>
+    </div>
+</div>
 
 <script>
 // ─────────────────────────────────────────────
@@ -888,7 +902,7 @@ function setLang(lang) {
     document.getElementById('status-nodes-lbl').textContent = t('status.nodes');
     document.getElementById('status-warps-lbl').textContent = t('status.warps');
     document.getElementById('status-dreams-lbl').textContent = t('status.dreams');
-    document.querySelectorAll('#node-type option, #mv-type-select option').forEach(opt => {
+    document.querySelectorAll('#node-type option, #mv-type-edit option').forEach(opt => {
         if (opt.dataset.i18n) opt.textContent = t(opt.dataset.i18n);
     });
     if (activeNode && document.getElementById('master-view').style.display === 'flex') openMasterView(activeNode);
@@ -914,8 +928,36 @@ function setLang(lang) {
 //  prevodih (app.subtitle) — zato se je pri bumpu skoraj vedno kje pozabila
 //  posodobiti. Zdaj: spremeni APP_VERSION spodaj, dodaj vnos v CHANGELOG, konec.
 // ─────────────────────────────────────────────
-const APP_VERSION = '9.0.17';
+const APP_VERSION = '9.0.19';
 const CHANGELOG = [
+    {
+        version: '9.0.19', date: '2026-08-25',
+        notes: {
+            sl: [
+                'Podrobnosti (⋯) na dovolj širokih zaslonih (≥1150px) zdaj niso več sredinski modal, ki zasenči cel master view — odprejo se kot izvlečni panel LEVO od master view, ki ga sploh ne prekriva. Master view ostaja povsem interakiven medtem, kar pomeni, da lahko urejaš search terms in hkrati gledaš, kako se seznam sanj spreminja v živo — točno to je bil izvirni razlog za prenovo v 9.0.18. Na ozkih zaslonih (premalo prostora za oba panela drug ob drugem) ostane fallback na prejšnji sredinski modal z zatemnitvijo.',
+            ],
+            en: [
+                'Details (⋯) on wide enough screens (≥1150px) is no longer a centered modal that dims the whole master view — it now opens as a drawer to the LEFT of the master view, which it doesn\'t cover at all. The master view stays fully interactive while it\'s open, meaning you can edit search terms and watch the dream list update live at the same time — which was the original point of the 9.0.18 redesign. On narrow screens (not enough room for both panels side by side) it falls back to the previous centered, dimmed modal.',
+            ],
+        }
+    },
+    {
+        version: '9.0.18', date: '2026-08-22',
+        notes: {
+            sl: [
+                'Master View prenovljen: ukinjena sta zavihka "Pregled"/"Uredi" — ime in tip lokacije se zdaj urejata inline (klikni, popravi, Enter/klik stran shrani), stabilnost ima vedno viden drsnik. Iskalni izrazi, opombe in skupina (parent) so se preselili v nov "Podrobnosti" (⋯) modal, da glavni pogled ostane osredotočen na povezave, podlokacije in sanje, ki jih dejansko bereš.',
+                'Seznam povezav (warpi) zdaj: prikaže prvih 6, z "Prikaži vse" za razširitev; dobi iskalno polje, ko preseže 6 povezav; je urejen abecedno po imenu povezane lokacije namesto po vrstnem redu nastanka; akcijski gumbi (preklopi smer, obrni, izbriši) so vidni šele ob hover-u nad vrstico, da dolg seznam ne izgleda natrpano.',
+                'Native confirm() (pri nastavitvi Doma in brisanju lokacije) zamenjan s custom, stilizranim potrditvenim modalom, integriranim v panel stack (Esc = preklic, isti vzorec kot vsi ostali paneli).',
+                'Popravljene tri stranske napake, odkrite med prenovo: klik na Timeline piko bi vrgel napako (referenca na odstranjen input), preklop jezika ob odprtem master view ne bi osvežil dropdowna za tip, in "★ DOM" oznaka ni bila nikoli prevedena v angleščino.',
+            ],
+            en: [
+                'Master View redesigned: the "Overview"/"Edit" tabs are gone — name and type are now edited inline (click, fix, Enter/click-away saves), stability has an always-visible slider. Search terms, notes, and group (parent) moved into a new "Details" (⋯) modal, so the main view stays focused on connections, sub-locations, and the dreams you\'re actually reading.',
+                'The connections (warps) list now: shows the first 6 with a "Show all" to expand; gets a filter box once past 6 connections; is sorted alphabetically by the connected location\'s name instead of creation order; action buttons (toggle direction, flip, delete) only appear on row hover, so a long list doesn\'t look cluttered.',
+                'Native confirm() (for setting Home and deleting a location) replaced with a custom, styled confirmation modal, integrated into the panel stack (Escape = cancel, same pattern as every other panel).',
+                'Fixed three side-effect bugs found while rebuilding: clicking a Timeline dot would throw an error (reference to a removed input), switching language while the master view was open wouldn\'t refresh the type dropdown, and the "★ HOME" badge was never actually translated into English.',
+            ],
+        }
+    },
     {
         version: '9.0.17', date: '2026-08-15',
         notes: {
@@ -1206,6 +1248,8 @@ const PANEL_CLOSERS = {
     'insights-panel': () => closeInsights(),
     'node-search': () => closeNodeSearch(),
     'timeline': () => switchMode('map'),
+    'confirm-modal': () => resolveConfirm(false), // Esc = preklic, varen privzeti izid
+    'mv-details-modal': () => closeDetailsModal(),
 };
 function closeTopPanel() {
     if (!panelStack.length) return;
@@ -3377,8 +3421,6 @@ function onStabilityChange(val) {
         const n = nodes.find(n => n.id === activeNode.id);
         if (n) n.stability = v;
     }
-    const statStab = document.querySelector('#mv-stats .stat-box:nth-child(2) .stat-val');
-    if (statStab) statStab.textContent = v.toFixed(1);
 }
 function saveStability(val) {
     if (!activeNode || !db) return;
@@ -3389,63 +3431,154 @@ function saveStability(val) {
 // ─────────────────────────────────────────────
 //  EDIT NODE
 // ─────────────────────────────────────────────
-function onNodeEditChange() {
-    document.getElementById('mv-save-btn').style.display = 'inline-block';
+// PERF: Name/Type ne vplivata na dream-matching (freq-cache) ali na ParentId
+// (group bounds) — poln refreshData() bi tu po nepotrebnem znova prebral bazo
+// IN prešteval sanje za VSE node (glej warp-fix opombo zgoraj za isti razlog).
+// Ta helper osveži samo tisto, kar je dejansko odvisno od imena/tipa: warp
+// dropdowne (prikazujeta imena), insights (če je odprt), timeline dirty flag.
+function applyNodeFieldChange(targetNode, changes) {
+    Object.assign(targetNode, changes);
+    const n = nodeMap.get(targetNode.id);
+    if (n) Object.assign(n, changes);
+    markUnsaved();
+    populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
+    populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
+    if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
+    tlDirty = true;
 }
-function saveNodeEdits() {
+
+function renderTypeBadge(node) {
+    const badge = document.getElementById('mv-type-badge');
+    if (node.isHome) {
+        badge.textContent = '★ ' + t('mv.home_badge'); badge.style.color = 'var(--home)';
+    } else {
+        badge.textContent = `${TYPE_LABELS[node.type] || '⬤'} ${t('mv.type.' + node.type.toLowerCase())}`;
+        badge.style.color = TYPE_COLORS[node.type] || 'var(--accent)';
+    }
+}
+
+// ─── Inline-edit: IME (klik na prikaz -> input, blur/Enter -> shrani, Esc -> prekliči) ───
+let _nameEditPrev = '';
+function startEditName() {
+    if (!activeNode) return;
+    const disp = document.getElementById('mv-node-name-display');
+    const input = document.getElementById('mv-name-edit');
+    _nameEditPrev = activeNode.name;
+    input.value = _nameEditPrev;
+    disp.style.display = 'none';
+    input.style.display = 'inline-block';
+    input.focus(); input.select();
+}
+function commitEditName() {
+    const disp = document.getElementById('mv-node-name-display');
+    const input = document.getElementById('mv-name-edit');
+    input.style.display = 'none';
+    disp.style.display = '';
+    saveNodeName(input.value);
+}
+function saveNodeName(newName) {
     if (!activeNode || !db) return;
-    const newName = document.getElementById('mv-name-input').value.trim();
-    const newType = document.getElementById('mv-type-select').value;
-    if (!newName) return;
-    const oldName = activeNode.name, oldType = activeNode.type;
+    newName = newName.trim();
+    const disp = document.getElementById('mv-node-name-display');
+    if (!newName || newName === activeNode.name) { disp.textContent = activeNode.name; return; }
+    const oldName = activeNode.name;
     const targetNode = activeNode;
     try {
-        db.run("UPDATE Atlas_Nodes SET Name=?, Type=? WHERE Id=?", [newName, newType, targetNode.id]);
-        targetNode.name = newName; targetNode.type = newType;
-        const n = nodeMap.get(targetNode.id);
-        if (n) { n.name = newName; n.type = newType; }
-        document.getElementById('mv-save-btn').style.display = 'none';
-        const badge = document.getElementById('mv-type-badge');
-        badge.textContent = `${TYPE_LABELS[newType] || '⬤'} ${t('mv.type.' + newType.toLowerCase())}`;
-        badge.style.color = TYPE_COLORS[newType] || 'var(--accent)';
-        markUnsaved();
-        // PERF: Name/Type ne vplivata na dream-matching (freq-cache) ali na
-        // ParentId (group bounds) — poln refreshData() bi tu po nepotrebnem
-        // znova prebral bazo IN prešteval sanje za VSE node (glej warp-fix
-        // opombo zgoraj za isti razlog). Osvežimo samo, kar je dejansko
-        // odvisno od imena/tipa: warp dropdowne (prikazujeta imena), insights
-        // (če je odprt), in timeline dirty flag (tudi tam se vidi ime).
-        populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
-        populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
-        if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
-        tlDirty = true;
+        db.run("UPDATE Atlas_Nodes SET Name=? WHERE Id=?", [newName, targetNode.id]);
+        applyNodeFieldChange(targetNode, { name: newName });
+        disp.textContent = newName;
         pushUndo({
             undo: () => {
-                db.run("UPDATE Atlas_Nodes SET Name=?, Type=? WHERE Id=?", [oldName, oldType, targetNode.id]);
-                targetNode.name = oldName; targetNode.type = oldType;
-                const n = nodeMap.get(targetNode.id);
-                if (n) { n.name = oldName; n.type = oldType; }
-                markUnsaved();
-                populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
-                populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
-                if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
-                tlDirty = true;
-                if (activeNode?.id === targetNode.id) openMasterView(targetNode);
+                db.run("UPDATE Atlas_Nodes SET Name=? WHERE Id=?", [oldName, targetNode.id]);
+                applyNodeFieldChange(targetNode, { name: oldName });
+                if (activeNode?.id === targetNode.id) document.getElementById('mv-node-name-display').textContent = oldName;
             },
             redo: () => {
-                db.run("UPDATE Atlas_Nodes SET Name=?, Type=? WHERE Id=?", [newName, newType, targetNode.id]);
-                targetNode.name = newName; targetNode.type = newType;
-                const n = nodeMap.get(targetNode.id);
-                if (n) { n.name = newName; n.type = newType; }
-                markUnsaved();
-                populateWarpSelect('warp-from', document.getElementById('warp-search-from').value);
-                populateWarpSelect('warp-to', document.getElementById('warp-search-to').value);
-                if (typeof insightsOpen !== 'undefined' && insightsOpen) buildInsights();
-                tlDirty = true;
-                if (activeNode?.id === targetNode.id) openMasterView(targetNode);
+                db.run("UPDATE Atlas_Nodes SET Name=? WHERE Id=?", [newName, targetNode.id]);
+                applyNodeFieldChange(targetNode, { name: newName });
+                if (activeNode?.id === targetNode.id) document.getElementById('mv-node-name-display').textContent = newName;
+            }
+        });
+    } catch(e) { disp.textContent = oldName; showToast('Napaka: ' + e.message, true); }
+}
+
+// ─── Inline-edit: TIP (klik na badge -> select, blur/change -> shrani) ───
+function startEditType() {
+    if (!activeNode || activeNode.isHome) return; // Dom nima urejevalnega tipa (badge kaže ★ DOM)
+    const badge = document.getElementById('mv-type-badge');
+    const sel = document.getElementById('mv-type-edit');
+    sel.value = activeNode.type;
+    badge.style.display = 'none';
+    sel.style.display = 'inline-block';
+    sel.focus();
+}
+function commitEditType() {
+    const badge = document.getElementById('mv-type-badge');
+    const sel = document.getElementById('mv-type-edit');
+    sel.style.display = 'none';
+    badge.style.display = '';
+    saveNodeType(sel.value);
+}
+function saveNodeType(newType) {
+    if (!activeNode || !db || newType === activeNode.type) return;
+    const oldType = activeNode.type;
+    const targetNode = activeNode;
+    try {
+        db.run("UPDATE Atlas_Nodes SET Type=? WHERE Id=?", [newType, targetNode.id]);
+        applyNodeFieldChange(targetNode, { type: newType });
+        renderTypeBadge(targetNode);
+        pushUndo({
+            undo: () => {
+                db.run("UPDATE Atlas_Nodes SET Type=? WHERE Id=?", [oldType, targetNode.id]);
+                applyNodeFieldChange(targetNode, { type: oldType });
+                if (activeNode?.id === targetNode.id) renderTypeBadge(targetNode);
+            },
+            redo: () => {
+                db.run("UPDATE Atlas_Nodes SET Type=? WHERE Id=?", [newType, targetNode.id]);
+                applyNodeFieldChange(targetNode, { type: newType });
+                if (activeNode?.id === targetNode.id) renderTypeBadge(targetNode);
             }
         });
     } catch(e) { showToast('Napaka: ' + e.message, true); }
+}
+
+// ─── Podrobnosti modal (skupina, iskalni izrazi, opombe, brisanje) ───
+// Prostor, potreben za izvlečni panel LEVO od master view, ne da bi ta
+// prekril levo stransko vrstico: 340 (sidebar) + 20 (mv desni rob) + 390
+// (širina mv) + 12 (razmik) + 340 (širina izvlečnega panela) + 20 (varnostna
+// rezerva). Pod tem pragom ni dovolj prostora — fallback na sredinski modal.
+const MV_DETAILS_DRAWER_MIN_WIDTH = 1150;
+
+function openDetailsModal() {
+    if (!activeNode) return;
+    populateParentSelect(activeNode);
+    document.getElementById('mv-search-terms').value = activeNode.searchTerms || '';
+    document.getElementById('mv-notes').value = activeNode.notes || '';
+    document.getElementById('mv-term-suggestions').innerHTML = '';
+    document.getElementById('mv-delete-btn').style.display = activeNode.isHome ? 'none' : '';
+
+    const outer = document.getElementById('mv-details-modal');
+    const box = document.getElementById('mv-details-box');
+    const hasRoom = window.innerWidth >= MV_DETAILS_DRAWER_MIN_WIDTH;
+
+    if (hasRoom) {
+        // IZVLEČNI PANEL: sidran na levi rob master view, master view se ne
+        // premakne, brez zatemnitve ozadja — ostaneš lahko hkrati v dream
+        // listu (ravno zato je bila ta prenova narejena: da lahko urejaš
+        // search terms in gledaš, kako se seznam sanj spreminja v živo).
+        outer.style.cssText = 'display:block; position:absolute; top:80px; right:422px; height:calc(100vh - 120px); max-height:780px; z-index:95; pointer-events:none;';
+        box.style.cssText = 'pointer-events:auto; width:340px; height:100%; background:rgba(8,9,10,0.97); border:1px solid var(--accent); border-radius:12px; backdrop-filter:blur(20px); box-shadow:0 0 40px rgba(0,0,0,0.9); overflow-y:auto; padding:18px 20px; box-sizing:border-box;';
+    } else {
+        // MODAL FALLBACK: premalo prostora za izvlečni panel poleg master
+        // view — enako obnašanje kot prej (na sredino, z zatemnitvijo).
+        outer.style.cssText = 'display:flex; position:fixed; inset:0; background:rgba(5,5,6,0.6); backdrop-filter:blur(2px); z-index:590; align-items:center; justify-content:center;';
+        box.style.cssText = 'background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px 20px; max-width:400px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:0 12px 48px rgba(0,0,0,0.7); box-sizing:border-box;';
+    }
+    pushPanel('mv-details-modal');
+}
+function closeDetailsModal() {
+    popPanel('mv-details-modal');
+    document.getElementById('mv-details-modal').style.display = 'none';
 }
 
 // ─────────────────────────────────────────────
@@ -3495,12 +3628,12 @@ function saveParent(val) {
 // ─────────────────────────────────────────────
 //  SET HOME NODE
 // ─────────────────────────────────────────────
-function setHomeNode() {
+async function setHomeNode() {
     if (!activeNode || !db) return;
     if (activeNode.isHome) return; // že je dom, ne naredi nič
 
     const confirmMsg = t('node.confirm_set_home', activeNode.name);
-    if (!confirm(confirmMsg)) return;
+    if (!await showConfirm(confirmMsg)) return;
 
     try {
         // Odstrani dom vsem obstoječim
@@ -3534,42 +3667,21 @@ function setHomeNode() {
 function resetMasterViewUI(mode) {
     document.getElementById('master-view').style.display = 'flex';
     try { document.getElementById('mv-body').scrollTop = 0; } catch(e) {}
-    document.getElementById('mv-save-btn').style.display = 'none';
     document.getElementById('mv-dream-search').value = '';
     document.getElementById('mv-dream-counter').style.display = 'none';
     document.getElementById('mv-children').style.display = 'none';
     document.getElementById('mv-connections').style.display = 'none';
+    mvConnExpanded = false;
+    const connFilter = document.getElementById('mv-connections-filter');
+    if (connFilter) connFilter.value = '';
+    // Zapri morebiten odprt Podrobnosti modal iz prejšnjega noda
+    if (document.getElementById('mv-details-modal').style.display !== 'none') closeDetailsModal();
+    // Prekliči morebitno aktivno inline urejanje imena/tipa iz prejšnjega noda
+    document.getElementById('mv-name-edit').style.display = 'none';
+    document.getElementById('mv-node-name-display').style.display = '';
+    document.getElementById('mv-type-edit').style.display = 'none';
+    document.getElementById('mv-type-badge').style.display = '';
     currentDreams = [];
-    setMVMode('view'); // privzeto view mod
-}
-
-function setMVMode(mode) {
-    const isView = mode === 'view';
-    document.getElementById('mv-view-mode').style.display = isView ? 'flex' : 'none';
-    document.getElementById('mv-edit-mode').style.display = isView ? 'none' : 'block';
-    // Stil zavihkov
-    const viewTab = document.getElementById('mv-view-tab');
-    const editTab = document.getElementById('mv-edit-tab');
-    if (viewTab) { viewTab.classList.toggle('active', isView); }
-    if (editTab) { editTab.classList.toggle('active', !isView); }
-    // Ko gremo v edit mod, nastavi vrednosti
-    if (!isView && activeNode) populateEditMode(activeNode);
-}
-
-function populateEditMode(node) {
-    document.getElementById('mv-name-input').value = node.name;
-    document.getElementById('mv-type-select').value = node.type;
-    document.getElementById('mv-stability-slider').value = node.stability ?? 10;
-    document.getElementById('mv-stability-val').textContent = (node.stability ?? 10).toFixed(1);
-    document.getElementById('mv-search-terms').value = node.searchTerms || '';
-    document.getElementById('mv-notes').value = node.notes || '';
-    document.getElementById('mv-save-btn').style.display = 'none';
-    document.getElementById('mv-delete-btn').style.display = node.isHome ? 'none' : '';
-    document.getElementById('mv-home-btn').style.display = node.isHome ? 'none' : '';
-    // Populate parent select
-    populateParentSelect(node);
-    // Clear suggestions
-    document.getElementById('mv-term-suggestions').innerHTML = '';
 }
 
 function populateParentSelect(node) {
@@ -3831,34 +3943,70 @@ function unpinDream(sleepCycleId) {
 // ─────────────────────────────────────────────
 //  MASTER VIEW
 // ─────────────────────────────────────────────
+let mvConnExpanded = false;
+const MV_CONN_LIMIT = 6;
+
 function renderConnectionsSection(node) {
-    const connectedWarps = warps.filter(w => w.from === node.id || w.to === node.id);
+    const allWarps = warps.filter(w => w.from === node.id || w.to === node.id);
     const connSec = document.getElementById('mv-connections');
     const connList = document.getElementById('mv-connections-list');
+    const filterRow = document.getElementById('mv-connections-filter-row');
+    const filterInput = document.getElementById('mv-connections-filter');
     const warpsVal = document.getElementById('mv-stat-warps-val');
-    if (warpsVal) warpsVal.textContent = connectedWarps.length;
-    if (connectedWarps.length > 0) {
-        connSec.style.display = 'block';
-        connList.innerHTML = connectedWarps.map(w => {
-            const other = nodeMap.get(w.from === node.id ? w.to : w.from);
-            const iFrom = w.from === node.id;
-            let dirLabel, dirTitle;
-            if (!w.oneWay) { dirLabel = '↔'; dirTitle = t('warp.twoway'); }
-            else if (iFrom) { dirLabel = '→'; dirTitle = t('warp.oneway_out'); }
-            else { dirLabel = '←'; dirTitle = t('warp.oneway_in'); }
-            return `<div style="font-size:0.78em; padding:5px 0; border-bottom:1px solid #1a1a1a;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span><span style="color:var(--warp); cursor:help;" title="${dirTitle}">${dirLabel}</span> ${escHtml(other ? other.name : '?')}</span>
-                    <span style="display:flex; gap:6px; align-items:center;">
-                        <button onclick="toggleWarpOneWay(${w.id})" title="${t('warp.toggle_oneway')}"
-                            style="background:none;border:1px solid #333;color:${w.oneWay ? 'var(--warp)' : 'var(--muted)'};border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">${w.oneWay ? '→' : '↔'}</button>
-                        ${w.oneWay ? `<button onclick="flipWarp(${w.id})" title="${t('warp.flip')}" style="background:none;border:1px solid #333;color:var(--muted);border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">⇄</button>` : ''}
-                        <button onclick="deleteWarp(${w.id})" title="${t('warp.delete')}" style="background:none;border:none;color:var(--muted);font-size:1em;cursor:pointer;padding:0 2px;">✕</button>
-                    </span>
-                </div>
-            </div>`;
-        }).join('');
-    } else { connSec.style.display = 'none'; }
+    if (warpsVal) warpsVal.textContent = allWarps.length;
+
+    if (!allWarps.length) { connSec.style.display = 'none'; return; }
+    connSec.style.display = 'block';
+
+    // Abecedno po imenu povezane lokacije — pri dolgem seznamu je vrstni red
+    // po ID-ju (nastanek warpa) neuporaben za skeniranje.
+    const withNames = allWarps.map(w => {
+        const other = nodeMap.get(w.from === node.id ? w.to : w.from);
+        return { w, other, name: other ? other.name : '?' };
+    }).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    // Filter — prikazan samo, če je povezav dovolj, da je dejansko koristen
+    // (za 2-3 povezave bi bil samo vizualni šum).
+    const showFilter = allWarps.length > MV_CONN_LIMIT;
+    filterRow.style.display = showFilter ? 'block' : 'none';
+    const filterVal = showFilter ? (filterInput.value || '').trim().toLowerCase() : '';
+    const filtered = filterVal ? withNames.filter(e => e.name.toLowerCase().includes(filterVal)) : withNames;
+
+    const limited = mvConnExpanded ? filtered : filtered.slice(0, MV_CONN_LIMIT);
+    const hiddenCount = filtered.length - limited.length;
+
+    connList.innerHTML = limited.map(({ w, name }) => {
+        const iFrom = w.from === node.id;
+        let dirLabel, dirTitle;
+        if (!w.oneWay) { dirLabel = '↔'; dirTitle = t('warp.twoway'); }
+        else if (iFrom) { dirLabel = '→'; dirTitle = t('warp.oneway_out'); }
+        else { dirLabel = '←'; dirTitle = t('warp.oneway_in'); }
+        // Akcijski gumbi (.mv-conn-actions) so vidni šele ob hover-u nad vrstico
+        // (.mv-conn-row) — pri dolgem seznamu bi bili sicer vedno vidni gumbi na
+        // vsaki vrstici prevelik vizualni šum.
+        return `<div class="mv-conn-row">
+            <div class="mv-conn-row-inner">
+                <span><span style="color:var(--warp); cursor:help;" title="${dirTitle}">${dirLabel}</span> ${escHtml(name)}</span>
+                <span class="mv-conn-actions">
+                    <button onclick="toggleWarpOneWay(${w.id})" title="${t('warp.toggle_oneway')}"
+                        style="background:none;border:1px solid #333;color:${w.oneWay ? 'var(--warp)' : 'var(--muted)'};border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">${w.oneWay ? '→' : '↔'}</button>
+                    ${w.oneWay ? `<button onclick="flipWarp(${w.id})" title="${t('warp.flip')}" style="background:none;border:1px solid #333;color:var(--muted);border-radius:4px;padding:1px 5px;font-size:0.9em;cursor:pointer;">⇄</button>` : ''}
+                    <button onclick="deleteWarp(${w.id})" title="${t('warp.delete')}" style="background:none;border:none;color:var(--muted);font-size:1em;cursor:pointer;padding:0 2px;">✕</button>
+                </span>
+            </div>
+        </div>`;
+    }).join('') + (
+        filtered.length > MV_CONN_LIMIT
+            ? `<div class="mv-conn-show-all" onclick="toggleConnExpanded()">${
+                mvConnExpanded ? t('mv.connections.show_less') : `${t('mv.connections.show_all')} (+${hiddenCount})`
+              }</div>`
+            : ''
+    );
+}
+
+function toggleConnExpanded() {
+    mvConnExpanded = !mvConnExpanded;
+    if (activeNode) renderConnectionsSection(activeNode);
 }
 
 function openMasterView(node) {
@@ -3867,15 +4015,9 @@ function openMasterView(node) {
     resetMasterViewUI('node');
     if (MM.visible) { MM._wasVisible = true; MM.visible = false; MM.x = 0; } // skrij minimap
 
-    // Badge in ime v view modu
-    const badge = document.getElementById('mv-type-badge');
+    // Badge in ime
     const nameDisplay = document.getElementById('mv-node-name-display');
-    if (node.isHome) {
-        badge.textContent = '★ DOM'; badge.style.color = 'var(--home)';
-    } else {
-        badge.textContent = `${TYPE_LABELS[node.type] || '⬤'} ${t('mv.type.' + node.type.toLowerCase())}`;
-        badge.style.color = TYPE_COLORS[node.type] || 'var(--accent)';
-    }
+    renderTypeBadge(node);
     if (nameDisplay) nameDisplay.textContent = node.name;
 
     // Indikatorji iskalnih izrazov
@@ -3892,6 +4034,8 @@ function openMasterView(node) {
         homeBtn.textContent = '⌂ ' + t('mv.set_home');
         homeBtn.title = t('mv.set_home_hint');
     }
+    const detailsBtn = document.getElementById('mv-details-btn');
+    if (detailsBtn) detailsBtn.title = t('mv.details.hint');
 
     // Stability za stats
     const stab = node.stability ?? 10;
@@ -3909,9 +4053,18 @@ function openMasterView(node) {
 
     document.getElementById('mv-stats').innerHTML = `
         <div class="stat-box"><div class="stat-val">${dreamCount}</div><div class="stat-lbl">${t('mv.stat.dreams')}</div></div>
-        <div class="stat-box"><div class="stat-val">${parseFloat(stab).toFixed(1)}</div><div class="stat-lbl">${t('mv.stat.stability')}</div></div>
+        <div class="stat-box stat-box-stability">
+            <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+                <input type="range" id="mv-stability-slider" min="1" max="10" step="0.5" value="${parseFloat(stab)}"
+                    oninput="onStabilityChange(this.value)" onchange="saveStability(this.value)"
+                    style="width:100%; margin:0;" onclick="event.stopPropagation();">
+            </div>
+            <div class="stat-val" id="mv-stability-val" style="font-size:1em; margin-top:2px;">${parseFloat(stab).toFixed(1)}</div>
+            <div class="stat-lbl">${t('mv.stat.stability')}</div>
+        </div>
         <div class="stat-box"><div class="stat-val" id="mv-stat-warps-val">${connectedWarps.length}</div><div class="stat-lbl">${t('mv.stat.warps')}</div></div>
     `;
+    updateSliderGradient(parseFloat(stab));
 
     const childSec = document.getElementById('mv-children');
     const childList = document.getElementById('mv-children-list');
@@ -4103,7 +4256,7 @@ function openDreamDetail(content, date, loc, highlightTerm) {
     resetMasterViewUI('detail');
     document.getElementById('mv-type-badge').textContent = date || '';
     document.getElementById('mv-type-badge').style.color = 'var(--muted)';
-    document.getElementById('mv-name-input').value = loc || t('mv.dreaming');
+    document.getElementById('mv-node-name-display').textContent = loc || t('mv.dreaming');
     let safeContent = escHtml(content || '');
     if (highlightTerm) {
         // BUG #3 FIX: regex escape na surovi term, nato iščemo v že-HTML-escapani vsebini
@@ -4164,13 +4317,13 @@ function uiCreateNode() {
     } catch(e) { showToast(t('node.error_create') + e.message, true); }
 }
 
-function deleteCurrentNode() {
+async function deleteCurrentNode() {
     if (!activeNode || !db || activeNode.isHome) return;
     const children = getChildren(activeNode.id);
     const confirmMsg = children.length > 0
         ? t('node.confirm_delete_parent', activeNode.name, children.length)
         : t('node.confirm_delete', activeNode.name);
-    if (!confirm(confirmMsg)) return;
+    if (!await showConfirm(confirmMsg, { danger: true })) return;
     const deletedNode = { ...activeNode };
     const deletedChildren = children.map(c => ({ ...c }));
     // Shrani warpe ki bodo izbrisani
@@ -4354,6 +4507,33 @@ function escHtml(str) {
 
 // Splošno, majhno obvestilo na dnu zaslona — daje jasno povratno informacijo za akcije,
 // ki se sicer zgodijo "tiho" (npr. klik na timeline piko, Ctrl+klik za nov warp).
+// Custom potrditveni modal namesto native confirm() — slednji se ne da
+// stilizirati (izgleda kot sistemsko okno brskalnika, ne kot del Orbisa) in je
+// sinhrono blokirajoč. showConfirm() vrne Promise<boolean>, klicatelj mora biti
+// async funkcija in uporabiti await. Modal je integriran v panelStack, torej
+// Esc (ali klik na temno ozadje) ga zapre kot preklic — isti vzorec kot vsi
+// ostali paneli v aplikaciji.
+let _confirmResolve = null;
+function showConfirm(message, opts = {}) {
+    return new Promise(resolve => {
+        _confirmResolve = resolve;
+        document.getElementById('confirm-modal-msg').textContent = message;
+        const okBtn = document.getElementById('confirm-modal-ok');
+        if (opts.danger) {
+            okBtn.style.background = 'var(--warp)'; okBtn.style.color = '#fff';
+        } else {
+            okBtn.style.background = ''; okBtn.style.color = '';
+        }
+        document.getElementById('confirm-modal').style.display = 'flex';
+        pushPanel('confirm-modal');
+    });
+}
+function resolveConfirm(result) {
+    popPanel('confirm-modal');
+    document.getElementById('confirm-modal').style.display = 'none';
+    if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+}
+
 function showToast(msg, isWarning = false) {
     let toast = document.getElementById('orbis-toast');
     if (!toast) {

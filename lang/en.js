@@ -3,6 +3,8 @@ window.LANG_EN = {
     // ── App ──────────────────────────────────────────────
     'app.subtitle': 'SINGULARITY',
     'changelog.title': 'Changelog',
+    'confirm.cancel': 'Cancel',
+    'confirm.ok': 'Confirm',
 
     // ── Database ─────────────────────────────────────────
     'db.title': 'Load Database',
@@ -84,12 +86,16 @@ window.LANG_EN = {
     'mv.delete': 'Delete',
     'mv.stability.label': 'Stability',
     'mv.type.personal': 'Personal',
+    'mv.home_badge': 'HOME',
     'mv.type.archetype': 'Archetype',
     'mv.type.dreamsign': 'Dream Sign',
     'mv.stat.dreams': 'Dreams',
     'mv.stat.stability': 'Stability',
     'mv.stat.warps': 'Warps',
     'mv.connections.title': 'Connections / Warps',
+    'mv.connections.filter_placeholder': 'Filter connections...',
+    'mv.connections.show_all': 'Show all',
+    'mv.connections.show_less': 'Show less',
     'mv.children.title': 'Sub-locations',
     'mv.dreams.counter.total': 'dreams',
     'mv.dreams.counter.filtered': 'results',
@@ -116,6 +122,8 @@ window.LANG_EN = {
     'mv.pin.search.placeholder': 'Date or part of the text...',
     'mv.set_home': 'Set as Home',
     'mv.set_home_hint': 'Set this location as the center of the map',
+    'mv.details.hint': 'Details (group, search terms, notes)',
+    'mv.details.title': 'DETAILS',
 
     // ── Insights panel ───────────────────────────────────
     'insights.no_db': 'Load a database to view insights.',

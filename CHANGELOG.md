@@ -3,6 +3,36 @@
 Vse pomembnejše spremembe Orbisa so zabeležene tukaj. Isti seznam je viden tudi
 znotraj aplikacije: `H` (Help) → link poleg naslova.
 
+## v9.0.19 — 2026-08-25
+
+- Podrobnosti (⋯) na dovolj širokih zaslonih (≥1150px) zdaj niso več
+  sredinski modal, ki zasenči cel master view — odprejo se kot izvlečni
+  panel LEVO od master view, ki ga sploh ne prekriva. Master view ostaja
+  povsem interaktiven medtem, kar pomeni, da lahko urejaš search terms in
+  hkrati gledaš, kako se seznam sanj spreminja v živo — točno to je bil
+  izvirni razlog za prenovo v 9.0.18. Na ozkih zaslonih (premalo prostora za
+  oba panela drug ob drugem) ostane fallback na prejšnji sredinski modal z
+  zatemnitvijo.
+
+## v9.0.18 — 2026-08-22
+
+- Master View prenovljen: ukinjena sta zavihka "Pregled"/"Uredi" — ime in tip
+  lokacije se zdaj urejata inline (klikni, popravi, Enter/klik stran shrani),
+  stabilnost ima vedno viden drsnik. Iskalni izrazi, opombe in skupina
+  (parent) so se preselili v nov "Podrobnosti" (⋯) modal, da glavni pogled
+  ostane osredotočen na povezave, podlokacije in sanje, ki jih dejansko bereš.
+- Seznam povezav (warpi) zdaj: prikaže prvih 6, z "Prikaži vse" za
+  razširitev; dobi iskalno polje, ko preseže 6 povezav; je urejen abecedno po
+  imenu povezane lokacije namesto po vrstnem redu nastanka; akcijski gumbi
+  (preklopi smer, obrni, izbriši) so vidni šele ob hover-u nad vrstico.
+- Native confirm() (pri nastavitvi Doma in brisanju lokacije) zamenjan s
+  custom, stiliziranim potrditvenim modalom, integriranim v panel stack
+  (Esc = preklic).
+- Popravljene tri stranske napake, odkrite med prenovo: klik na Timeline
+  piko bi vrgel napako (referenca na odstranjen input), preklop jezika ob
+  odprtem master view ne bi osvežil dropdowna za tip, in "★ DOM" oznaka ni
+  bila nikoli prevedena v angleščino.
+
 ## v9.0.17 — 2026-08-15
 
 - Dodan favicon (SVG, vgrajen kot data URI — brez dodatnih datotek, skladno
